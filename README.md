@@ -2,12 +2,22 @@
 
 一个基于 **Electron + Monaco Editor（VS Code 的编辑器内核）** 的多语言桌面 IDE，界面为苹果式简约风格，支持浅色 / 深色主题。
 
-## 启动
+## 下载
+
+到 [Releases](https://github.com/Liyucheng1997/lumen-ide/releases/latest) 下载 Windows 版：
+
+- `Lumen-IDE-Setup-1.0.0.exe`：安装版，可选择安装位置，创建桌面和开始菜单快捷方式
+- `Lumen-IDE-1.0.0-portable.exe`：便携版，免安装，双击即用
+
+安装包没有代码签名，首次运行时 Windows SmartScreen 可能提示“已保护你的电脑”，点“更多信息 → 仍要运行”即可。
+
+## 从源码运行
 
 ```bash
 npm install     # 首次运行
 npm start       # 启动 IDE
 npm run dev     # 启动并打开开发者工具
+npm run dist    # 打包 Windows 安装版和便携版到 dist/
 ```
 
 也可以把文件夹路径作为参数：`npx electron . D:\my-project`。

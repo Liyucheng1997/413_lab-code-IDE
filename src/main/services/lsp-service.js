@@ -17,7 +17,8 @@ function setSender(fn) {
 
 function pyrightPath() {
   try {
-    return require.resolve('pyright/langserver.index.js');
+    // 打包后 pyright 位于 app.asar.unpacked，子进程无法从 asar 内启动
+    return require.resolve('pyright/langserver.index.js').replace(`app.asar${path.sep}`, `app.asar.unpacked${path.sep}`);
   } catch {
     return null;
   }

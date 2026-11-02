@@ -43,6 +43,7 @@ function createWindow() {
     backgroundColor: colors.bg,
     titleBarStyle: 'hidden',
     titleBarOverlay: process.platform === 'darwin' ? undefined : { color: colors.bg, symbolColor: colors.symbol, height: 44 },
+    icon: path.join(ROOT, 'build', 'icon.png'),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,

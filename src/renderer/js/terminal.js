@@ -9,6 +9,8 @@ let listEl;
 const terms = [];
 let active = null;
 let seq = 1;
+// 终端创建的回复可能晚于第一批输出到达，先按 id 暂存，拿到 id 后再写入
+const earlyData = new Map();
 
 function cssVar(name) {
   return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
@@ -106,6 +108,11 @@ class Term {
     const r = await window.ide.term.create({ cwd: this.cwd || ctx.root, cols: this.xterm.cols, rows: this.xterm.rows });
     this.id = r.id;
     this.shell = r.shell;
+    const early = earlyData.get(r.id);
+    if (early) {
+      earlyData.delete(r.id);
+      this.xterm.write(early.join(''));
+    }
     if (!r.pty) this.xterm.writeln('\x1b[33m[提示] node-pty 不可用，终端以简化模式运行（无行编辑、无交互程序支持）\x1b[0m');
     renderList();
   }
@@ -214,6 +221,10 @@ export function initTerminal(container) {
   window.ide.term.onData(({ id, data }) => {
     const t = terms.find((x) => x.id === id);
     if (t) t.xterm.write(data);
+    else {
+      if (!earlyData.has(id)) earlyData.set(id, []);
+      earlyData.get(id).push(data);
+    }
   });
   window.ide.term.onExit(({ id, code }) => {
     const t = terms.find((x) => x.id === id);
