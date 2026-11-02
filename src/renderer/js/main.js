@@ -17,6 +17,7 @@ import { registerSnippets } from './snippets.js';
 import { initWorkbench, applyTheme, openFolder } from './workbench.js';
 import { initDebug } from './debug.js';
 import { initDebugConsole } from './debug-console.js';
+import { initAiPanel } from './ai-panel.js';
 import { runCommand } from './commands.js';
 import * as editorsApi from './editors.js';
 import * as lspApi from './lsp-client.js';
@@ -52,6 +53,7 @@ async function boot() {
   initDebugConsole(document.querySelector('.panel-view[data-panel=debug]'));
   initDebug();
   await initWorkbench(state);
+  initAiPanel(state);
   installKeyHandler();
   // 调试/自动化测试入口
   window.__lumen = { ctx, runCommand, editors: editorsApi, lsp: lspApi, openFolder, debug: debugApi };

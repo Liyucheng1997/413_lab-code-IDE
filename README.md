@@ -6,8 +6,8 @@
 
 到 [Releases](https://github.com/Liyucheng1997/lumen-ide/releases/latest) 下载 Windows 版：
 
-- `Lumen-IDE-Setup-1.0.0.exe`：安装版，可选择安装位置，创建桌面和开始菜单快捷方式
-- `Lumen-IDE-1.0.0-portable.exe`：便携版，免安装，双击即用
+- `Lumen-IDE-Setup-1.1.0.exe`：安装版，可选择安装位置，创建桌面和开始菜单快捷方式
+- `Lumen-IDE-1.1.0-portable.exe`：便携版，免安装，双击即用
 
 安装包没有代码签名，首次运行时 Windows SmartScreen 可能提示“已保护你的电脑”，点“更多信息 → 仍要运行”即可。
 
@@ -33,6 +33,7 @@ npm run dist    # 打包 Windows 安装版和便携版到 dist/
 | 编辑器布局 | 多标签（预览标签、拖动排序、拖到另一组）、最多 3 栏拆分编辑器、后退/前进导航、会话恢复 |
 | 终端 | 基于 node-pty 的真实终端，可开多个，支持颜色、链接、复制粘贴 |
 | 调试 | F5 断点调试 **Python**（debugpy）、**JavaScript**（Node.js，内置适配器）、**C/C++**（GDB 14+）：断点 / 条件断点 / 日志点、单步跳过/进入/跳出、运行到光标处、变量树、监视表达式、调用堆栈、异常断点、悬停查看变量值、调试控制台求值 |
+| AI 助手 | 右侧对话面板，默认使用 **Claude Opus 5.5**（`claude-opus-5-5`）。能阅读整个项目、搜索代码、修改文件、运行命令；每次修改先显示差异，确认后才写入；支持右键“AI：修改代码 / 解释代码 / 修复问题” |
 | 运行 | Ctrl+F5 直接运行当前文件（Python、JS、TS、C/C++、Java、Go、Rust、C#、Ruby、PHP、Lua、Shell 等 20+ 种），任务运行（npm 脚本、Makefile、Cargo、Go） |
 | Git | 状态、暂存/取消暂存、放弃更改、提交（含修正）、分支切换/新建、拉取/推送/储藏、提交历史、差异对比、编辑器行号旁的修改标记 |
 | 其他 | 问题面板、输出面板、状态栏（光标、缩进、编码、换行符、语言模式）、设置界面 + settings.json、自动保存、保存时格式化 |
@@ -55,6 +56,8 @@ npm run dist    # 打包 Windows 安装版和便携版到 dist/
 | 单步跳过 / 进入 / 跳出 | F10 / F11 / Shift+F11 |
 | 拆分编辑器 | Ctrl+\\ |
 | 切换侧栏 / 面板 | Ctrl+B / Ctrl+J |
+| 打开 AI 助手 | Ctrl+Alt+I |
+| AI 修改选中的代码 | Ctrl+Alt+K |
 
 完整列表见 设置 → 快捷键。
 
@@ -83,6 +86,16 @@ npm run dist    # 打包 Windows 安装版和便携版到 dist/
 
 右键行号左侧可以添加条件断点、日志点；在“运行和调试”侧栏里查看变量、监视表达式和调用堆栈；调试控制台底部的输入框可以在当前栈帧里求值。调试 Python 用的解释器可以在 设置 → 运行与语言 → Python 解释器 中指定。
 
+## AI 助手
+
+1. 点左侧活动栏的 ✦ 图标（或 Ctrl+Alt+I）打开 AI 助手。
+2. 第一次使用时填入你自己的 Claude API Key（在 [Anthropic 控制台](https://console.anthropic.com/) 创建）。Key 用系统加密（Windows DPAPI）保存在本机，不写入 settings.json，也不会发给界面进程。
+3. 使用代理或中转服务时，在 Base URL 填入其地址；模型、思考强度可以在 设置 → AI 助手 中修改。
+
+助手可用的工具：列出文件、读取文件、搜索代码、修改文件、新建文件、运行命令、查看编辑器报告的错误。文件操作限制在当前工作区内；修改文件和运行命令默认都要你确认，可以在面板底部或设置中开启“自动应用修改”。
+
+编辑器中选中代码后，可以右键使用“AI：修改代码…”（Ctrl+Alt+K）、“AI：解释代码”、“AI：修复问题”。
+
 ## 项目结构
 
 ```
@@ -97,6 +110,7 @@ src/main/                 主进程
     lsp-service.js        语言服务器进程管理与 JSON-RPC
     runner.js             “运行当前文件”命令生成
     dap-service.js        调试会话（Debug Adapter Protocol 客户端）
+    ai-service.js         AI 助手：调用 Claude API、对话与工具调用循环、加密保存 API Key
     node-adapter.js       内置的 Node.js 调试适配器（DAP ↔ Chrome DevTools 协议）
     settings.js           设置与会话状态
 src/renderer/             界面
@@ -105,6 +119,8 @@ src/renderer/             界面
   js/lsp-client.js        LSP → Monaco 各类 Provider
   js/debug.js             断点、调试会话、变量/监视/调用堆栈、调试工具栏
   js/debug-console.js     调试控制台
+  js/ai-panel.js          AI 助手面板
+  js/ai-tools.js          AI 助手的工具执行（读写文件、搜索、运行命令）
   js/explorer.js / search-view.js / git-view.js / run-view.js / terminal.js ...
 ```
 

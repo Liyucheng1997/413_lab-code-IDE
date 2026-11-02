@@ -836,6 +836,24 @@ export async function openDiff(p, ref = 'HEAD', group = activeGroup) {
   await group.activate(tab);
 }
 
+// 显示两段文本的差异（AI 修改预览用）；同一文件的旧预览会被替换
+export async function openTextDiff({ path: p, original, modified, title, key }) {
+  const monaco = ctx.monaco;
+  const lang = languageForFile(p);
+  const old = findTab((t) => t.type === 'diff' && t.key === key);
+  if (old) await old.group.closeTab(old.tab, { force: true });
+  const g = activeGroup;
+  const tab = g.addTab({ type: 'diff', path: p, ref: 'text', key, title, original: monaco.editor.createModel(original, lang), modified: monaco.editor.createModel(modified, lang), modifiedOwned: true });
+  removeWelcome(g);
+  await g.activate(tab, { focus: false });
+  return tab;
+}
+
+export async function closeTabByKey(key) {
+  const found = findTab((t) => t.key === key);
+  if (found) await found.group.closeTab(found.tab, { force: true });
+}
+
 export async function openMarkdownPreview(p, group = activeGroup) {
   let target = groups[group.index + 1] || (groups.length < 3 ? addGroup() : group);
   const existing = target.tabs.find((t) => t.type === 'markdown' && path.same(t.path, p));

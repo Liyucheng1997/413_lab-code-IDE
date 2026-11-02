@@ -11,6 +11,7 @@ const SECTIONS = [
   ['files', '文件'],
   ['terminal', '终端'],
   ['run', '运行与语言'],
+  ['ai', 'AI 助手'],
   ['keys', '快捷键'],
 ];
 
@@ -47,6 +48,12 @@ const DEFS = [
   { s: 'terminal', key: 'terminalFontSize', title: '终端字号', type: 'number', min: 8, max: 40 },
   { s: 'terminal', key: 'terminalShell', title: '终端 Shell', desc: '留空自动选择（Windows 优先 pwsh，其次 PowerShell）。例如 cmd.exe、C:\\Program Files\\Git\\bin\\bash.exe', type: 'text' },
 
+  { s: 'ai', key: '__aikey', title: 'API Key', desc: '你的 Claude API Key，用系统加密保存在本机，不会写进 settings.json', type: 'aikey' },
+  { s: 'ai', key: 'aiBaseURL', title: 'Base URL', desc: '留空使用官方 API（api.anthropic.com）。使用代理或中转服务时填写其地址', type: 'text' },
+  { s: 'ai', key: 'aiModel', title: '模型', desc: '默认 claude-opus-5-5（Claude Opus 5.5）', type: 'text' },
+  { s: 'ai', key: 'aiEffort', title: '思考强度', desc: '越高越仔细，耗时和费用也越高。写代码推荐“高”', type: 'select', options: [['low', '低'], ['medium', '中'], ['high', '高'], ['xhigh', '很高'], ['max', '最高']] },
+  { s: 'ai', key: 'aiAutoApply', title: '自动应用文件修改', desc: '关闭时每次修改都会先显示差异，由你确认', type: 'bool' },
+  { s: 'ai', key: 'aiAutoRun', title: '自动运行命令', desc: '关闭时 AI 要运行的每条命令都需要你确认。建议保持关闭', type: 'bool' },
   { s: 'run', key: 'pythonPath', title: 'Python 解释器', desc: '调试 Python 时使用的解释器完整路径，留空则使用 PATH 中的 python。需要安装 debugpy', type: 'text' },
   { s: 'run', key: 'runCommands', title: '自定义运行命令', desc: '按扩展名覆盖 F5 运行命令。可用变量：${file} ${fileDir} ${fileBase} ${fileNoExt} ${outFile}', type: 'json', placeholder: '{\n  ".py": "python -u \\"${file}\\""\n}' },
   { s: 'run', key: 'lsp', title: '自定义语言服务器', desc: '按语言 ID 指定服务器命令，例如 { "go": { "command": "gopls", "args": [] } }', type: 'json', placeholder: '{\n  "cpp": { "command": "clangd", "args": [] }\n}' },
@@ -100,6 +107,34 @@ function control(def) {
         }
       };
       break;
+    case 'aikey': {
+      el = h(`<div class="ai-key-ctl"><input class="input" type="password" placeholder="sk-ant-…" autocomplete="off" spellcheck="false"><button class="btn btn-sm btn-primary">保存</button><button class="btn btn-sm">测试</button><button class="btn btn-sm">清除</button><div class="setting-desc ai-key-state"></div></div>`);
+      const input = el.querySelector('input');
+      const [saveBtn, testBtn, clearBtn] = el.querySelectorAll('button');
+      const state = el.querySelector('.ai-key-state');
+      const show = async () => {
+        const c = await window.ide.ai.config();
+        state.textContent = c.hasKey ? `已保存：${c.keyHint}` : c.envKey ? '未保存，正在使用环境变量 ANTHROPIC_API_KEY' : '尚未配置';
+        import('./ai-panel.js').then((m) => m.refreshAiConfig());
+      };
+      saveBtn.onclick = async () => {
+        if (!input.value.trim()) return;
+        await window.ide.ai.setKey(input.value.trim());
+        input.value = '';
+        show();
+      };
+      testBtn.onclick = async () => {
+        state.textContent = '正在测试…';
+        const r = await window.ide.ai.test();
+        state.textContent = r.message;
+      };
+      clearBtn.onclick = async () => {
+        await window.ide.ai.setKey('');
+        show();
+      };
+      show();
+      break;
+    }
     default:
       el = h(`<input class="input" value="${escapeHtml(v || '')}" spellcheck="false">`);
       el.onchange = () => updateSettings({ [def.key]: el.value });

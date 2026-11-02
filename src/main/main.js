@@ -11,6 +11,7 @@ const terminalService = require('./services/terminal-service');
 const lspService = require('./services/lsp-service');
 const runner = require('./services/runner');
 const dapService = require('./services/dap-service');
+const aiService = require('./services/ai-service');
 
 const ROOT = path.join(__dirname, '..', '..');
 const isDev = process.argv.includes('--dev');
@@ -115,6 +116,7 @@ function createWindow() {
   terminalService.setSender(send);
   lspService.setSender(send);
   dapService.setSender(send);
+  aiService.setSender(send);
 }
 
 function registerIpc() {
@@ -174,6 +176,7 @@ function registerIpc() {
   lspService.register(ipcMain);
   runner.register(ipcMain);
   dapService.register(ipcMain);
+  aiService.register(ipcMain);
 }
 
 app.whenReady().then(() => {

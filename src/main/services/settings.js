@@ -32,6 +32,11 @@ const DEFAULTS = {
   terminalFontSize: 13,
   terminalShell: '', // 为空时自动选择
   excludeGlobs: ['**/node_modules', '**/.git', '**/__pycache__', '**/.venv', '**/dist', '**/build', '**/out', '**/target', '**/.idea', '**/.vs'],
+  aiModel: 'claude-opus-5-5',
+  aiBaseURL: '', // 留空使用官方 API
+  aiEffort: 'high', // low | medium | high | xhigh | max
+  aiAutoApply: false, // 自动应用 AI 的文件修改
+  aiAutoRun: false, // 自动运行 AI 请求的命令
   pythonPath: '', // 调试用的 Python 解释器，留空自动查找
   runCommands: {}, // 例如 { ".py": "python -u \"${file}\"" }
   lsp: {}, // 例如 { "go": { "command": "gopls", "args": [] } }

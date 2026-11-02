@@ -103,6 +103,18 @@ contextBridge.exposeInMainWorld('ide', {
   run: {
     commandFor: invoke('run:command-for'),
   },
+  ai: {
+    config: invoke('ai:config'),
+    setKey: invoke('ai:set-key'),
+    test: invoke('ai:test'),
+    send: invoke('ai:send'),
+    stop: invoke('ai:stop'),
+    reset: invoke('ai:reset'),
+    exec: invoke('ai:exec'),
+    toolResult: (callId, result) => ipcRenderer.send('ai:tool-result', callId, result),
+    onEvent: on('ai:event'),
+    onToolCall: on('ai:tool-call'),
+  },
   dap: {
     start: invoke('dap:start'),
     request: invoke('dap:request'),
