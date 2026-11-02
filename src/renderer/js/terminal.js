@@ -264,3 +264,46 @@ export function hasTerminals() {
 }
 
 export { path };
+
+// ---------------- 供 AI 助手使用 ----------------
+
+export function listTerminals() {
+  return terms.map((t) => ({ name: t.name, shell: t.shell || '', active: t === active, exited: !!t.exited, ai: !!t.isAi }));
+}
+
+export function findTerminal(name) {
+  if (!name) return terms.find((t) => t.isAi && !t.exited) || active || null;
+  const n = name.trim().toLowerCase();
+  return terms.find((t) => t.name.toLowerCase() === n) || terms.find((t) => t.name.toLowerCase().includes(n)) || null;
+}
+
+// 读取终端缓冲区最后若干行（含滚动区）
+export function terminalText(t, lines = 120) {
+  const buf = t.xterm.buffer.active;
+  const end = buf.baseY + buf.cursorY;
+  const out = [];
+  for (let i = Math.max(0, end - lines + 1); i <= end; i++) {
+    const line = buf.getLine(i);
+    if (line) out.push(line.translateToString(true));
+  }
+  while (out.length && !out[out.length - 1].trim()) out.pop();
+  return out.join('\n');
+}
+
+export async function aiTerminal(cwd) {
+  let t = terms.find((x) => x.isAi && !x.exited);
+  let fresh = false;
+  if (!t) {
+    t = newTerminal({ cwd, name: 'AI 终端', fixedName: true });
+    t.isAi = true;
+    fresh = true;
+  } else setActive(t);
+  bus.emit('panel:show', 'terminal');
+  await t.ready;
+  // 新终端要等 Shell 启动完（出现提示符）再输入命令，PowerShell 加载配置文件可能要几秒
+  if (fresh) {
+    for (let i = 0; i < 60 && !/[>$#]\s*$/.test(terminalText(t, 5)); i++) await new Promise((r) => setTimeout(r, 250));
+    await new Promise((r) => setTimeout(r, 300));
+  }
+  return t;
+}

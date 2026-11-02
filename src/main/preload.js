@@ -111,6 +111,8 @@ contextBridge.exposeInMainWorld('ide', {
     stop: invoke('ai:stop'),
     reset: invoke('ai:reset'),
     exec: invoke('ai:exec'),
+    killExec: invoke('ai:exec-kill'),
+    onExecData: on('ai:exec-data'),
     toolResult: (callId, result) => ipcRenderer.send('ai:tool-result', callId, result),
     onEvent: on('ai:event'),
     onToolCall: on('ai:tool-call'),

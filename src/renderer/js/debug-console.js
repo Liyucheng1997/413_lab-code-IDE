@@ -103,3 +103,8 @@ export function initDebugConsole(container) {
     if (!window.getSelection().toString()) inputEl.focus();
   });
 }
+
+export function consoleText(lines = 200) {
+  if (!listEl) return '';
+  return listEl.innerText.split('\n').slice(-lines).join('\n');
+}

@@ -581,6 +581,26 @@ body.ai-hidden #ai-panel, body.ai-hidden #sash-ai { display: none; }
 .ai-usage { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .ai-auto { display: flex; align-items: center; gap: 4px; cursor: pointer; white-space: nowrap; }
 .ai-auto input { margin: 0; }
+.ai-mode { padding: 2px; flex: none; }
+.ai-mode button { height: 22px; padding: 0 9px; font-size: 11px; }
+.ai-plan { border-radius: 12px; background: var(--panel-2); padding: 8px 12px 10px; font-size: 12.5px; }
+.ai-plan-head { display: flex; align-items: center; gap: 6px; font-weight: 600; margin-bottom: 4px; }
+.ai-plan-head svg { width: 14px; height: 14px; color: var(--primary); }
+.ai-plan-head .muted { margin-left: auto; font-weight: 400; font-size: 11.5px; font-variant-numeric: tabular-nums; }
+.ai-plan-item { display: flex; align-items: flex-start; gap: 8px; padding: 3px 0; line-height: 1.5; color: var(--text-2); }
+.ai-plan-mark { width: 14px; height: 14px; margin-top: 2px; flex: none; border-radius: 50%; box-shadow: inset 0 0 0 1.5px var(--line-strong); }
+.ai-plan-item.in_progress { color: var(--text); font-weight: 500; }
+.ai-plan-item.in_progress .ai-plan-mark { box-shadow: inset 0 0 0 1.5px var(--primary), inset 0 0 0 4px var(--panel-2), inset 0 0 0 8px var(--primary); }
+.ai-plan-item.completed { color: var(--text-3); text-decoration: line-through; }
+.ai-plan-item.completed .ai-plan-mark { background: var(--success); box-shadow: none; }
+.ai-tool-note { font-size: 11.5px; color: var(--text-3); margin-top: 4px; }
+.ai-cmd-out.live { color: var(--text); }
+.ai-exec-stop { display: inline-flex; align-items: center; gap: 3px; margin-top: 4px; font-size: 11.5px; color: var(--danger); }
+.ai-exec-stop svg { width: 11px; height: 11px; }
+.ai-exit { margin-top: 4px; font-size: 11px; font-variant-numeric: tabular-nums; }
+.ai-exit.ok { color: var(--success); }
+.ai-exit.bad { color: var(--danger); }
+.btn-primary.danger { background: var(--danger); }
 .ai-key-ctl { display: flex; flex-wrap: wrap; gap: 6px; width: 300px; justify-content: flex-end; }
 .ai-key-ctl .input { width: 100% !important; }
 .ai-key-ctl .ai-key-state { width: 100%; text-align: right; }

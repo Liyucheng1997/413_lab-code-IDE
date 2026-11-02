@@ -63,12 +63,10 @@ function renderBody() {
 function renderEmpty() {
   listEl.innerHTML = `<div class="ai-empty">
     <div class="ai-empty-icon">${icon('sparkle')}</div>
-    <div class="ai-empty-title">有什么可以帮你？</div>
-    <div class="ai-empty-sub">我可以阅读整个项目、修改文件、运行命令。所有修改都会先给你看差异，确认后才写入。</div>
+    <div class="ai-empty-title">想做点什么？</div>
+    <div class="ai-empty-sub">我可以新建项目、读写文件、运行程序和命令、查看终端和报错，然后修到能跑为止。底部可以选择每一步要不要先问你。</div>
     <div class="ai-suggestions">
-      <button>解释一下这个项目的结构</button>
-      <button>帮我找出当前文件里的 bug 并修复</button>
-      <button>给当前文件写单元测试</button>
+      ${ctx.root ? '<button>解释一下这个项目的结构</button><button>运行当前项目，有报错就修好</button><button>给当前文件写单元测试并运行</button>' : '<button>新建一个 Python 命令行待办清单项目</button><button>新建一个网页版贪吃蛇小游戏</button><button>新建一个 Node.js 的 HTTP 接口项目</button>'}
     </div></div>`;
   listEl.querySelectorAll('.ai-suggestions button').forEach((b) => (b.onclick = () => send(b.textContent)));
 }
@@ -133,15 +131,28 @@ function renderContextChip() {
   ctxEl.appendChild(chip);
 }
 
+function ideState() {
+  const lines = [`工作区：${ctx.root || '（未打开，需要时用 create_project 新建或 open_folder 打开）'}`];
+  const tabs = [];
+  for (const g of editors.allGroups()) for (const t of g.tabs) if (t.type === 'file' && !t.path.startsWith('untitled:')) tabs.push(ctx.root ? path.relative(ctx.root, t.path).replace(/\\/g, '/') : t.path);
+  if (tabs.length) lines.push(`打开的文件：${[...new Set(tabs)].slice(0, 12).join('、')}`);
+  const ed = editors.activeEditor();
+  const t = editors.activeTab();
+  if (t && t.type === 'file' && ed && ed.getPosition()) lines.push(`当前编辑：${ctx.root ? path.relative(ctx.root, t.path).replace(/\\/g, '/') : t.path} 第 ${ed.getPosition().lineNumber} 行`);
+  const M = ctx.monaco.MarkerSeverity;
+  const markers = ctx.monaco.editor.getModelMarkers({});
+  const errs = markers.filter((m) => m.severity === M.Error).length;
+  const warns = markers.filter((m) => m.severity === M.Warning).length;
+  if (errs || warns) lines.push(`问题面板：${errs} 个错误，${warns} 个警告`);
+  return `<ide_state>\n${lines.join('\n')}\n</ide_state>`;
+}
+
 function buildMessage(text, extra) {
   const c = contextInfo();
-  const parts = [];
-  if (c) {
-    parts.push(`<当前文件>${c.rel}</当前文件>`);
-    if (c.selection) parts.push(`<选中的代码 行="${c.startLine}-${c.endLine}">\n${c.selection}\n</选中的代码>`);
-  }
+  const parts = [ideState()];
+  if (c && c.selection) parts.push(`<选中的代码 文件="${c.rel}" 行="${c.startLine}-${c.endLine}">\n${c.selection}\n</选中的代码>`);
   if (extra) parts.push(extra);
-  return { content: (parts.length ? parts.join('\n') + '\n\n' : '') + text, chip: c ? `${path.basename(c.path)}${c.selection ? ` · 第 ${c.startLine}-${c.endLine} 行` : ''}` : '' };
+  return { content: parts.join('\n') + '\n\n' + text, chip: c ? `${path.basename(c.path)}${c.selection ? ` · 第 ${c.startLine}-${c.endLine} 行` : ''}` : '' };
 }
 
 export async function send(text, extra) {
@@ -200,6 +211,16 @@ function onBlockStart(e) {
     b.el.hidden = true; // 有内容时再显示
   } else if (e.kind === 'text') {
     b = { kind: 'text', text: '', el: h('<div class="ai-text markdown-view"></div>') };
+  } else if (e.kind === 'server_tool_use') {
+    b = { kind: 'server', name: e.name, input: '', el: h(`<div class="ai-tool"><div class="ai-tool-head">${icon('search')}<span class="ai-tool-label">${escapeHtml(describeTool(e.name)[0])}</span><span class="ai-tool-target"></span><span class="ai-tool-status"><span class="spinner"></span></span></div></div>`) };
+  } else if (e.kind === 'web_search_tool_result') {
+    // 搜索结果到达：把最近的搜索卡片标记为完成
+    const last = [...turn.blocks.values()].reverse().find((x) => x.kind === 'server' && !x.done);
+    if (last) {
+      last.done = true;
+      last.el.querySelector('.ai-tool-status').innerHTML = icon('check');
+    }
+    return;
   } else if (e.kind === 'tool_use') {
     b = { kind: 'tool', name: e.name, id: e.id, inputChars: 0, el: h(`<div class="ai-tool" data-tool="${e.id}"><div class="ai-tool-head">${icon(toolIcon(e.name))}<span class="ai-tool-label">${escapeHtml(describeTool(e.name)[0])}</span><span class="ai-tool-target"></span><span class="ai-tool-status"><span class="spinner"></span></span></div></div>`) };
   } else return;
@@ -223,6 +244,10 @@ function onDelta(e) {
     b.text += e.text;
     b.el.hidden = !b.text.trim();
     b.el.querySelector('.ai-thinking-body').textContent = b.text;
+  } else if (b.kind === 'server') {
+    b.input += e.text;
+    const m = b.input.match(/"query"\s*:\s*"((?:[^"\\]|\\.)*)/);
+    if (m) b.el.querySelector('.ai-tool-target').textContent = m[1];
   } else if (b.kind === 'tool') {
     b.inputChars += e.text.length;
     if (b.name === 'edit_file' || b.name === 'write_file') b.el.querySelector('.ai-tool-status').innerHTML = `<span class="spinner"></span><span class="muted">${b.inputChars} 字符</span>`;
@@ -301,8 +326,55 @@ function diffStat(a, b) {
   return { added, removed };
 }
 
+// 实时命令输出：execId → { pre, chunks }
+const execViews = new Map();
+window.ide.ai.onExecData(({ execId, text }) => {
+  const v = execViews.get(execId);
+  if (!v) return;
+  v.text += text;
+  if (v.text.length > 20000) v.text = v.text.slice(-12000);
+  v.pre.textContent = v.text;
+  v.pre.scrollTop = v.pre.scrollHeight;
+  scrollToBottom();
+});
+
+// 计划清单：每个回答一张卡片，原地更新
+function renderPlan(items) {
+  if (!turn) return;
+  if (!turn.planEl) {
+    turn.planEl = h('<div class="ai-plan"></div>');
+    turn.el.appendChild(turn.planEl);
+  }
+  const done = items.filter((i) => i.status === 'completed').length;
+  turn.planEl.innerHTML = `<div class="ai-plan-head">${icon('check')}<span>任务计划</span><span class="muted">${done}/${items.length}</span></div>`;
+  for (const it of items) {
+    const row = h(`<div class="ai-plan-item ${it.status}"><span class="ai-plan-mark"></span><span></span></div>`);
+    row.lastElementChild.textContent = it.content;
+    turn.planEl.appendChild(row);
+  }
+  scrollToBottom();
+}
+
+// 按权限模式决定是否自动执行：改文件类看“自动改文件”，其余看“全自动”
+function isAuto(kind) {
+  return ['edit', 'create', 'move'].includes(kind) ? !!ctx.settings.aiAutoApply : !!ctx.settings.aiAutoRun;
+}
+
+// 等待确认的操作；切换到更宽松的权限模式时，自动放行新模式覆盖的那些
+const pendingApprovals = new Set();
+function releasePending() {
+  for (const p of [...pendingApprovals]) if (isAuto(p.kind)) p.approve();
+}
+
 async function onToolCall({ sessionId: sid, callId, id, name, input }) {
   if (sid !== sessionId) return window.ide.ai.toolResult(callId, { content: '会话已切换', isError: true });
+  if (name === 'update_plan') {
+    // 计划不显示成工具卡片，直接渲染清单
+    const b0 = toolBlock(id);
+    if (b0) b0.el.remove();
+    const r0 = await executeTool(name, input, { plan: renderPlan });
+    return window.ide.ai.toolResult(callId, r0);
+  }
   const b = toolBlock(id) || { el: h(`<div class="ai-tool"><div class="ai-tool-head">${icon(toolIcon(name))}<span class="ai-tool-label"></span><span class="ai-tool-target"></span><span class="ai-tool-status"></span></div></div>`) };
   if (!b.el.isConnected && turn) turn.el.appendChild(b.el);
   const [label, target] = describeTool(name, input);
@@ -314,41 +386,87 @@ async function onToolCall({ sessionId: sid, callId, id, name, input }) {
   const diffKey = 'ai:' + callId;
 
   const ui = {
+    plan: renderPlan,
     approve: (req) =>
       new Promise((resolve) => {
-        const auto = req.kind === 'command' ? ctx.settings.aiAutoRun : ctx.settings.aiAutoApply;
+        const auto = isAuto(req.kind);
         const detail = h('<div class="ai-tool-detail"></div>');
         b.el.appendChild(detail);
-        // 短命令在标题行已经能看全，长命令或多行命令才单独展开显示
-        if (req.kind === 'command') detail.innerHTML = req.command.length > 48 || req.command.includes('\n') ? `<pre class="ai-cmd">${escapeHtml(req.command)}</pre>` : '';
-        else {
+        let yesLabel = '确认';
+        if (req.kind === 'command') {
+          yesLabel = '运行';
+          const full = req.detail || req.command;
+          // 短命令在标题行已经能看全，长命令或多行命令才单独展开显示
+          if (req.detail || full.length > 48 || full.includes('\n')) detail.innerHTML = `<pre class="ai-cmd">${escapeHtml(full)}</pre>`;
+          if (req.terminal) detail.insertAdjacentHTML('beforeend', '<div class="ai-tool-note">将在“AI 终端”中运行，程序会持续运行直到你结束它</div>');
+        } else if (req.kind === 'edit' || req.kind === 'create') {
+          yesLabel = '应用修改';
           const st = diffStat(req.original, req.modified);
           detail.innerHTML = `<div class="ai-diffstat"><span class="add">+${st.added}</span><span class="del">-${st.removed}</span>${req.kind === 'create' ? '<span class="muted">新文件</span>' : ''}<button class="btn-link" data-a="diff">查看差异</button></div>`;
           const showDiff = () => editors.openTextDiff({ path: req.path, original: req.original, modified: req.modified, title: `AI 修改：${path.basename(req.path)}`, key: diffKey });
           detail.querySelector('[data-a=diff]').onclick = showDiff;
           if (!auto) showDiff();
+        } else if (req.kind === 'project') {
+          yesLabel = '创建并打开';
+          detail.innerHTML = `<div class="ai-tool-note">将在这里新建项目文件夹，并在 IDE 中打开：</div><pre class="ai-cmd" data-k="path"></pre>`;
+          detail.querySelector('[data-k=path]').textContent = req.path;
+        } else if (req.kind === 'open') {
+          yesLabel = '打开';
+          detail.innerHTML = `<div class="ai-tool-note">将切换工作区到这个文件夹（当前打开的文件会关闭）</div>`;
+        } else if (req.kind === 'move') {
+          yesLabel = '移动';
+        } else if (req.kind === 'delete') {
+          yesLabel = '删除';
+          detail.innerHTML = `<div class="ai-tool-note">将移到回收站</div>`;
         }
         if (auto) return resolve(true);
         status.innerHTML = '<span class="muted">等待确认</span>';
-        const acts = h(`<div class="ai-tool-actions"><button class="btn btn-sm" data-a="no">拒绝</button><button class="btn btn-sm btn-primary" data-a="yes">${req.kind === 'command' ? '运行' : '应用修改'}</button></div>`);
+        const acts = h(`<div class="ai-tool-actions">${req.kind === 'project' ? '<button class="btn btn-sm" data-a="where">更改位置…</button>' : ''}<button class="btn btn-sm" data-a="no">拒绝</button><button class="btn btn-sm btn-primary${req.kind === 'delete' ? ' danger' : ''}" data-a="yes">${yesLabel}</button></div>`);
         b.el.appendChild(acts);
         b.el.classList.add('pending');
         scrollToBottom(true);
+        let chosenPath = null;
+        const entry = { kind: req.kind, approve: () => done(true) };
+        pendingApprovals.add(entry);
         const done = (ok) => {
+          if (!pendingApprovals.has(entry)) return;
+          pendingApprovals.delete(entry);
           acts.remove();
           b.el.classList.remove('pending');
           editors.closeTabByKey(diffKey);
-          resolve(ok);
+          resolve(ok && chosenPath ? chosenPath : ok);
         };
+        const where = acts.querySelector('[data-a=where]');
+        if (where)
+          where.onclick = async () => {
+            const dir = await window.ide.dialog.openFolder();
+            if (!dir) return;
+            chosenPath = path.join(dir, path.basename(req.path));
+            detail.querySelector('[data-k=path]').textContent = chosenPath;
+          };
         acts.querySelector('[data-a=yes]').onclick = () => done(true);
         acts.querySelector('[data-a=no]').onclick = () => done(false);
         b.cancel = () => done(false);
       }),
     progress: (text) => (status.innerHTML = `<span class="spinner"></span><span class="muted">${escapeHtml(text)}</span>`),
-    output: (text, code) => {
-      const pre = h(`<pre class="ai-cmd-out${code === 0 ? '' : ' err'}"></pre>`);
-      pre.textContent = (text || '（无输出）').slice(-4000);
-      b.el.appendChild(pre);
+    startExec: (execId) => {
+      const pre = h('<pre class="ai-cmd-out live"></pre>');
+      const stopBtn = h(`<button class="btn-link ai-exec-stop">${icon('stop')}终止</button>`);
+      stopBtn.onclick = () => window.ide.ai.killExec(execId);
+      b.el.append(pre, stopBtn);
+      execViews.set(execId, { pre, text: '', stopBtn });
+      status.innerHTML = '<span class="spinner"></span><span class="muted">运行中</span>';
+    },
+    endExec: (execId, code) => {
+      const v = execViews.get(execId);
+      if (!v) return;
+      execViews.delete(execId);
+      v.stopBtn.remove();
+      v.pre.classList.remove('live');
+      v.pre.classList.toggle('err', code !== 0);
+      if (!v.text.trim()) v.pre.textContent = '（无输出）';
+      const codeEl = h(`<div class="ai-exit ${code === 0 ? 'ok' : 'bad'}">退出码 ${escapeHtml(String(code))}</div>`);
+      b.el.appendChild(codeEl);
     },
   };
 
@@ -521,7 +639,7 @@ export function initAiPanel(state) {
     <div class="ai-footer">
       <div class="ai-context"></div>
       <div class="ai-input-wrap"><textarea class="ai-input" rows="1" placeholder="让 AI 帮你写代码、改 bug、解释项目…（Enter 发送，Shift+Enter 换行）" spellcheck="false"></textarea><button class="ai-send" title="发送 (Enter)"></button></div>
-      <div class="ai-meta"><span class="ai-usage"></span><label class="ai-auto" title="开启后 AI 的文件修改直接生效，不再逐个确认"><input type="checkbox"> 自动应用修改</label></div>
+      <div class="ai-meta"><span class="ai-usage"></span><div class="seg ai-mode" title="AI 的权限"><button data-m="ask" title="修改文件、运行命令都要先确认">每次确认</button><button data-m="edits" title="自动应用文件修改，运行命令仍需确认">自动改文件</button><button data-m="auto" title="修改文件和运行命令都不再确认">全自动</button></div></div>
     </div>`;
   bodyEl = panel.querySelector('.ai-body');
   listEl = h('<div class="ai-list"></div>');
@@ -529,9 +647,15 @@ export function initAiPanel(state) {
   sendBtn = panel.querySelector('.ai-send');
   ctxEl = panel.querySelector('.ai-context');
   usageEl = panel.querySelector('.ai-usage');
-  const auto = panel.querySelector('.ai-auto input');
-  auto.checked = !!ctx.settings.aiAutoApply;
-  auto.onchange = () => updateSettings({ aiAutoApply: auto.checked });
+  const modeEl = panel.querySelector('.ai-mode');
+  const showMode = () => {
+    const m = ctx.settings.aiAutoRun && ctx.settings.aiAutoApply ? 'auto' : ctx.settings.aiAutoApply ? 'edits' : 'ask';
+    modeEl.querySelectorAll('button').forEach((b) => b.classList.toggle('active', b.dataset.m === m));
+  };
+  modeEl.querySelectorAll('button').forEach((b) => {
+    b.onclick = () => updateSettings({ aiAutoApply: b.dataset.m !== 'ask', aiAutoRun: b.dataset.m === 'auto' });
+  });
+  showMode();
   setRunning(false);
 
   inputEl.addEventListener('input', autoGrow);
@@ -551,7 +675,8 @@ export function initAiPanel(state) {
   bus.on('editor:active', renderContextChip);
   bus.on('editor:cursor', renderContextChip);
   bus.on('settings:changed', (s, patch) => {
-    auto.checked = !!s.aiAutoApply;
+    showMode();
+    if ('aiAutoApply' in patch || 'aiAutoRun' in patch) releasePending();
     if ('aiModel' in patch || 'aiBaseURL' in patch) refreshConfig();
   });
   bus.on('editor:created', attachEditorActions);

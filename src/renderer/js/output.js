@@ -52,3 +52,13 @@ export function showChannel(name) {
   if (el) render();
   bus.emit('output:channels');
 }
+
+export function channelNames() {
+  return [...channels.keys()];
+}
+
+export function channelText(name, lines = 200) {
+  const key = [...channels.keys()].find((k) => k.toLowerCase() === String(name || '').toLowerCase()) || name;
+  const list = channels.get(key);
+  return list ? list.slice(-lines).join('\n') : null;
+}
