@@ -45,7 +45,7 @@ async function refreshConfig() {
 }
 
 function ready() {
-  return config && (config.hasKey || config.envKey);
+  return config && (config.hasKey || config.envKey || (config.useSubscription && config.subscription.cli));
 }
 
 function renderBody() {
@@ -82,10 +82,13 @@ function renderSetup() {
     <button class="btn btn-primary" data-a="save">保存并测试连接</button>
     <div class="ai-setup-msg"></div>
     <button class="btn-link" data-a="console">还没有 API Key？前往 Anthropic 控制台创建</button>
+    ${config && config.subscription.cli ? '<button class="btn" data-a="sub">改用 Claude 订阅（本机 Claude Code 的登录）</button>' : ''}
   </div>`;
   const q = (k) => bodyEl.querySelector(`[data-k=${k}]`);
   const msg = bodyEl.querySelector('.ai-setup-msg');
   bodyEl.querySelector('[data-a=console]').onclick = () => window.ide.app.openExternal('https://console.anthropic.com/');
+  const subBtn = bodyEl.querySelector('[data-a=sub]');
+  if (subBtn) subBtn.onclick = () => updateSettings({ aiUseSubscription: true });
   bodyEl.querySelector('[data-a=save]').onclick = async () => {
     const key = q('key').value.trim();
     if (!key) {
@@ -495,8 +498,15 @@ function onEvent(e) {
       break;
     }
     case 'usage':
-      renderUsage(e.usage, e.model);
+      renderUsage(e.usage, e.model, e.channel);
       break;
+    case 'notice': {
+      const el = h('<div class="ai-note"></div>');
+      el.textContent = e.message;
+      (turn ? turn.el : listEl).appendChild(el);
+      scrollToBottom(true);
+      break;
+    }
     case 'error': {
       hideWorking();
       if (e.code === 'no-key') refreshConfig();
@@ -531,9 +541,10 @@ function fmt(n) {
   return n >= 1000 ? (n / 1000).toFixed(n >= 10000 ? 0 : 1) + 'k' : String(n);
 }
 
-function renderUsage(u, model) {
-  usageEl.textContent = `本轮 输入 ${fmt(u.input + u.cacheRead + u.cacheWrite)}${u.cacheRead ? `（缓存 ${fmt(u.cacheRead)}）` : ''} · 输出 ${fmt(u.output)} tokens`;
-  usageEl.title = `模型：${model}`;
+function renderUsage(u, model, channel) {
+  usageEl.textContent = `${channel === 'subscription' ? '订阅' : 'API'} · 本轮 输入 ${fmt(u.input + u.cacheRead + u.cacheWrite)}${u.cacheRead ? `（缓存 ${fmt(u.cacheRead)}）` : ''} · 输出 ${fmt(u.output)} tokens`;
+  usageEl.title = `模型：${model}
+${channel === 'subscription' ? '通过本机 Claude Code 使用订阅额度' : '通过 API Key 计费'}`;
 }
 
 function autoGrow() {
@@ -677,7 +688,7 @@ export function initAiPanel(state) {
   bus.on('settings:changed', (s, patch) => {
     showMode();
     if ('aiAutoApply' in patch || 'aiAutoRun' in patch) releasePending();
-    if ('aiModel' in patch || 'aiBaseURL' in patch) refreshConfig();
+    if ('aiModel' in patch || 'aiBaseURL' in patch || 'aiUseSubscription' in patch) refreshConfig();
   });
   bus.on('editor:created', attachEditorActions);
   for (const g of editors.allGroups()) attachEditorActions(g.editor);

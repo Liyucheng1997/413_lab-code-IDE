@@ -32,6 +32,7 @@ const DEFAULTS = {
   terminalFontSize: 13,
   terminalShell: '', // 为空时自动选择
   excludeGlobs: ['**/node_modules', '**/.git', '**/__pycache__', '**/.venv', '**/dist', '**/build', '**/out', '**/target', '**/.idea', '**/.vs'],
+  aiUseSubscription: false, // 优先用本机 Claude Code 登录的订阅额度，用不了再走 API（仅限个人使用）
   aiModel: 'claude-opus-5-5',
   aiBaseURL: '', // 留空使用官方 API
   aiEffort: 'high', // low | medium | high | xhigh | max

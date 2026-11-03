@@ -54,6 +54,7 @@ const DEFS = [
   { s: 'git', key: 'gitAutoFetch', title: '自动获取', desc: '每 5 分钟在后台从远程获取一次，及时显示“落后 n 个提交”。不会改动你的文件', type: 'bool' },
   { s: 'git', key: 'gitSyncRebase', title: '拉取时变基', desc: '拉取和同步时用 rebase 把本地提交接到远程之后，历史更整齐；关闭时使用 merge', type: 'bool' },
 
+  { s: 'ai', key: 'aiUseSubscription', title: '优先使用 Claude 订阅', desc: '先用本机 Claude Code（终端里 claude 登录的账号）的订阅额度，额度用完或未登录时自动切换到下面的 API Key。只适合在自己电脑上使用', type: 'bool' },
   { s: 'ai', key: '__aikey', title: 'API Key', desc: '你的 Claude API Key，用系统加密保存在本机，不会写进 settings.json', type: 'aikey' },
   { s: 'ai', key: 'aiBaseURL', title: 'Base URL', desc: '留空使用官方 API（api.anthropic.com）。使用代理或中转服务时填写其地址', type: 'text' },
   { s: 'ai', key: 'aiModel', title: '模型', desc: '默认 claude-opus-5-5（Claude Opus 5.5）', type: 'text' },

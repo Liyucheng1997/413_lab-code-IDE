@@ -11,6 +11,7 @@ let treeEl;
 let rootNode = null;
 const nodes = new Map(); // norm(path) → node
 let selected = null;
+let rowEls = new Map(); // node → 当前渲染的行元素
 let clipboard = null; // { paths, cut }
 let gitStatus = new Map(); // norm(path) → 'M' | 'U' | 'A' | 'D'
 let gitDirs = new Map();
@@ -102,6 +103,7 @@ function render() {
   const active = editors.activeTab();
   const activePath = active && active.path;
   const frag = document.createDocumentFragment();
+  rowEls = new Map();
   for (const row of visibleRows()) {
     if (row.input) {
       frag.appendChild(inputRow(row.depth));
@@ -136,6 +138,7 @@ function render() {
       contextMenu(e, nodeMenu(n));
     });
     setupDrag(el, n);
+    rowEls.set(n, el);
     frag.appendChild(el);
   }
   const oldInput = treeEl.querySelector('.tree-input');
@@ -332,9 +335,10 @@ function startRename(n) {
   render();
 }
 
+// 只切换高亮，不重建整棵树：mousedown 时重建会让这一行被替换，浏览器就不再触发 click
 function select(n) {
   selected = n;
-  render();
+  for (const [node, el] of rowEls) el.classList.toggle('selected', node === n);
 }
 
 async function toggle(n) {

@@ -6,8 +6,8 @@
 
 到 [Releases](https://github.com/Liyucheng1997/lumen-ide/releases/latest) 下载 Windows 版：
 
-- `Lumen-IDE-Setup-1.4.0.exe`：安装版，可选择安装位置，创建桌面和开始菜单快捷方式，**自动更新**
-- `Lumen-IDE-1.4.0-portable.exe`：便携版，免安装，双击即用（有新版本时只提示，需要手动下载）
+- `Lumen-IDE-Setup-1.5.0.exe`：安装版，可选择安装位置，创建桌面和开始菜单快捷方式，**自动更新**
+- `Lumen-IDE-1.5.0-portable.exe`：便携版，免安装，双击即用（有新版本时只提示，需要手动下载）
 
 安装版从 1.3.0 起会自动更新：启动后和每隔 4 小时检查一次新版本，在后台下载，下载完成后可以点“立即重启”，或者等下次关闭 IDE 时自动安装（沿用原来的安装位置）。也可以在 帮助 → 检查更新 手动检查，或在 设置 → 更新 中关闭自动更新。1.2.0 及更早的版本需要手动安装一次 1.3.0。
 
@@ -25,7 +25,7 @@ npm run dist    # 打包 Windows 安装版和便携版到 dist/
 发布新版本：改 `package.json` 里的版本号，`npm run dist`，然后把 `dist/` 里的安装包、便携版、`latest.yml` 和 `.blockmap` 一起上传到 GitHub Release（自动更新靠 `latest.yml` 找到新版本，`.blockmap` 用于增量下载）：
 
 ```bash
-gh release create v1.4.0 dist/Lumen-IDE-Setup-1.4.0.exe dist/Lumen-IDE-Setup-1.4.0.exe.blockmap dist/Lumen-IDE-1.4.0-portable.exe dist/latest.yml --title "Lumen IDE 1.4.0" --notes-file notes.md
+gh release create v1.5.0 dist/Lumen-IDE-Setup-1.5.0.exe dist/Lumen-IDE-Setup-1.5.0.exe.blockmap dist/Lumen-IDE-1.5.0-portable.exe dist/latest.yml --title "Lumen IDE 1.5.0" --notes-file notes.md
 ```
 
 也可以把文件夹路径作为参数：`npx electron . D:\my-project`。
@@ -119,6 +119,7 @@ AI 助手是一个能动手干活的编程智能体，而不只是聊天：它�
 1. 点左侧活动栏的 ✦ 图标（或 Ctrl+Alt+I）打开 AI 助手。
 2. 第一次使用时填入你自己的 Claude API Key（在 [Anthropic 控制台](https://console.anthropic.com/) 创建），默认模型 Claude Opus 5.5。Key 用系统加密（Windows DPAPI）保存在本机，不写入 settings.json，也不会发给界面进程。
 3. 使用代理或中转服务时，在 Base URL 填入其地址；模型、思考强度、新项目默认位置可以在 设置 → AI 助手 中修改。
+4. 已经装了 [Claude Code](https://code.claude.com/docs/en/setup) 并在终端用 `claude` 登录过订阅账号的话，可以在 设置 → AI 助手 打开“优先使用 Claude 订阅”：AI 助手会先通过本机的 Claude Code 使用订阅额度（不需要 API Key），额度用完或未登录时自动切换到 API Key 继续当前对话。面板底部会显示本轮走的是“订阅”还是“API”。这是给自己电脑用的个人功能，Anthropic 不允许把订阅登录做成给他人使用的产品。
 
 **它能做的事**
 
@@ -156,6 +157,7 @@ src/main/                 主进程
     runner.js             “运行当前文件”命令生成
     dap-service.js        调试会话（Debug Adapter Protocol 客户端）
     ai-service.js         AI 助手：调用 Claude API、对话与工具调用循环、加密保存 API Key
+    ai-subscription.js    AI 助手的订阅通道：通过本机 Claude Code 使用订阅额度，用不了时交给 API
     update-service.js     自动更新（electron-updater + GitHub Releases）
     node-adapter.js       内置的 Node.js 调试适配器（DAP ↔ Chrome DevTools 协议）
     settings.js           设置与会话状态

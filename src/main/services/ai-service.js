@@ -1,4 +1,5 @@
 // AI 助手：在主进程里调用 Claude API（官方 SDK），运行“对话 + 工具调用”循环。
+// 开启“优先使用 Claude 订阅”时先走本机 Claude Code 的订阅额度（见 ai-subscription.js），用不了再切换到 API。
 // API Key 用系统加密（Windows DPAPI）保存，只留在主进程，不会发给界面。
 // 工具（读写文件、搜索、运行命令）交给界面执行，这样能读到未保存的编辑器内容，并由用户确认修改。
 const Anthropic = require('@anthropic-ai/sdk').default;
@@ -7,6 +8,7 @@ const { spawn } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const settings = require('./settings');
+const subscription = require('./ai-subscription');
 
 const DEFAULT_MODEL = 'claude-opus-5-5';
 const MAX_ROUNDS = 200;
@@ -54,7 +56,13 @@ function config() {
     baseURL: s.aiBaseURL || '',
     model: s.aiModel || DEFAULT_MODEL,
     effort: s.aiEffort || 'high',
+    useSubscription: !!s.aiUseSubscription,
+    subscription: subscription.status(),
   };
+}
+
+function hasApiKey() {
+  return !!(loadKey() || process.env.ANTHROPIC_API_KEY);
 }
 
 function client() {
@@ -276,23 +284,58 @@ function callTool(sessionId, id, name, input) {
 async function runTurn(sessionId, userText, ctx) {
   let session = sessions.get(sessionId);
   if (!session) {
-    session = { messages: [], running: false };
+    session = { messages: [], running: false, mode: null };
     sessions.set(sessionId, session);
   }
   if (session.running) throw new Error('上一条消息还在处理中');
   session.running = true;
   session.aborted = false;
+  // 每个对话第一次发消息时决定通道；订阅用不了时切到 API 后，这个对话就一直用 API
+  if (!session.mode) session.mode = settings.get().aiUseSubscription && subscription.available() ? 'subscription' : 'api';
+
+  try {
+    if (session.mode === 'subscription') {
+      const r = await subscription.runTurn(session, userText, {
+        config,
+        tools: TOOLS,
+        validateInput,
+        systemPrompt,
+        maxRounds: MAX_ROUNDS,
+        webSearch: () => settings.get().aiWebSearch !== false,
+        cwd: () => (ctx && ctx.root) || null,
+        emit: (payload) => emit(sessionId, payload),
+        callTool: (id, name, input) => callTool(sessionId, id, name, input),
+      });
+      if (!r.fallback || session.aborted) return;
+      subscription.close(session);
+      session.mode = 'api';
+      if (!hasApiKey()) {
+        emit(sessionId, { type: 'error', message: `订阅通道不可用：${r.fallback}。也没有配置 API Key，无法切换到 API。` });
+        return;
+      }
+      emit(sessionId, { type: 'notice', message: `订阅通道不可用：${r.fallback}。已切换到 API 继续。` });
+      session.messages = [{ role: 'user', content: subscription.handoffText(session, r.partial) }];
+    } else if (session.transcript && !session.messages.length) {
+      // 之前在订阅通道的对话（比如额度用完后新开的轮次）
+      session.transcript.push(`【用户】\n${userText}`);
+      session.messages = [{ role: 'user', content: subscription.handoffText(session, false) }];
+    } else session.messages.push({ role: 'user', content: userText });
+    await apiLoop(sessionId, session);
+  } finally {
+    session.running = false;
+    emit(sessionId, { type: 'done', aborted: !!session.aborted });
+  }
+}
+
+async function apiLoop(sessionId, session) {
   const s = config();
   let c;
   try {
     c = client();
   } catch (err) {
-    session.running = false;
     emit(sessionId, { type: 'error', message: friendlyError(err), code: err.code });
     return;
   }
-
-  session.messages.push({ role: 'user', content: userText });
   const official = isOfficialEndpoint();
   const usage = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 };
 
@@ -333,7 +376,7 @@ async function runTurn(sessionId, userText, ctx) {
       usage.output += u.output_tokens || 0;
       usage.cacheRead += u.cache_read_input_tokens || 0;
       usage.cacheWrite += u.cache_creation_input_tokens || 0;
-      emit(sessionId, { type: 'usage', usage, model: message.model });
+      emit(sessionId, { type: 'usage', channel: 'api', usage, model: message.model });
 
       if (message.stop_reason === 'refusal') {
         const detail = message.stop_details && message.stop_details.explanation;
@@ -376,9 +419,6 @@ async function runTurn(sessionId, userText, ctx) {
   } catch (err) {
     session.stream = null;
     if (!(err instanceof Anthropic.APIUserAbortError) && !session.aborted) emit(sessionId, { type: 'error', message: friendlyError(err) });
-  } finally {
-    session.running = false;
-    emit(sessionId, { type: 'done', aborted: !!session.aborted });
   }
 }
 
@@ -387,6 +427,7 @@ function stop(sessionId) {
   if (!s) return;
   s.aborted = true;
   if (s.stream) s.stream.abort();
+  subscription.interrupt(s);
   for (const [callId, p] of pendingTools) {
     if (p.sessionId === sessionId) {
       pendingTools.delete(callId);
@@ -458,8 +499,11 @@ function register(ipc) {
   ipc.handle('ai:stop', (_e, sessionId) => stop(sessionId));
   ipc.handle('ai:reset', (_e, sessionId) => {
     stop(sessionId);
+    const s = sessions.get(sessionId);
+    if (s) subscription.close(s);
     sessions.delete(sessionId);
   });
+  app.on('will-quit', () => subscription.closeAll(sessions));
   ipc.handle('ai:exec', (_e, execId, command, opts) => execCommand(execId, command, opts || {}));
   ipc.handle('ai:exec-kill', (_e, execId) => {
     const proc = running.get(execId);
