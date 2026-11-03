@@ -165,7 +165,7 @@ async function open(session, deps) {
       },
     },
   });
-  session.sub = { q, inbox, stderr };
+  session.sub = { q, inbox, stderr, model: s.model, effort: s.effort };
   return session.sub;
 }
 
@@ -202,6 +202,14 @@ async function runTurn(session, userText, deps) {
   } catch (err) {
     return { fallback: '无法启动本机 Claude Code：' + (err.message || err), partial: false };
   }
+  // 对话中途在面板或设置里改了强度、模型：直接改正在运行的 Claude Code，不用重开对话
+  const s = deps.config();
+  try {
+    if (s.effort !== sub.effort) await sub.q.applyFlagSettings({ effortLevel: s.effort });
+    if (s.model !== sub.model) await sub.q.setModel(s.model);
+    sub.effort = s.effort;
+    sub.model = s.model;
+  } catch {}
   sub.inbox.push({ type: 'user', message: { role: 'user', content: userText }, parent_tool_use_id: null });
 
   let round = -1;
@@ -210,6 +218,7 @@ async function runTurn(session, userText, deps) {
   let failure = null; // assistant 消息上的错误类型
   const webSearches = new Set();
   const toolNames = new Map();
+  let model = null; // 实际回复用的模型（modelUsage 里还有 Claude Code 自己的辅助调用，不能拿第一个）
 
   while (true) {
     let next;
@@ -252,6 +261,7 @@ async function runTurn(session, userText, deps) {
         failure = m.error;
         continue; // 合成的错误消息，不记进对话
       }
+      if (m.message.model) model = m.message.model;
       for (const b of m.message.content) {
         if (b.type === 'text' && b.text.trim()) transcript.push(`【助手】\n${b.text}`);
         else if (b.type === 'tool_use') {
@@ -272,7 +282,9 @@ async function runTurn(session, userText, deps) {
       if (info.status === 'rejected') limit = info;
     } else if (m.type === 'result') {
       const u = m.usage || {};
-      deps.emit({ type: 'usage', channel: 'subscription', model: Object.keys(m.modelUsage || {})[0] || deps.config().model, usage: { input: u.input_tokens || 0, output: u.output_tokens || 0, cacheRead: u.cache_read_input_tokens || 0, cacheWrite: u.cache_creation_input_tokens || 0 } });
+      const main = model || deps.config().model;
+      const aux = Object.keys(m.modelUsage || {}).filter((k) => k !== main);
+      deps.emit({ type: 'usage', channel: 'subscription', model: main, aux, usage: { input: u.input_tokens || 0, output: u.output_tokens || 0, cacheRead: u.cache_read_input_tokens || 0, cacheWrite: u.cache_creation_input_tokens || 0 } });
       if (session.aborted) return { ok: true };
       if (limit || failure === 'rate_limit') {
         const resets = limit && limit.resetsAt ? limit.resetsAt * 1000 : Date.now() + 15 * 60 * 1000;

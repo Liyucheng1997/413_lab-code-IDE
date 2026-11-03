@@ -27,16 +27,24 @@ function newSessionId() {
 
 // ---------------- 面板显示 ----------------
 
+// 面板常驻窗口右侧；折叠后完全收起，用标题栏右侧的“AI 助手”按钮再展开
 export function togglePanel(force) {
-  const show = force !== undefined ? force : document.body.classList.contains('ai-hidden');
-  document.body.classList.toggle('ai-hidden', !show);
-  document.querySelector('.activity[data-action=ai]').classList.toggle('active', show);
+  const show = force !== undefined ? force : document.body.classList.contains('ai-collapsed');
+  setCollapsed(!show);
   saveState({ aiHidden: !show });
+  bus.emit('panel:resized');
   if (show) {
     refreshConfig();
     setTimeout(() => inputEl && inputEl.focus(), 50);
   }
 }
+
+function setCollapsed(collapsed) {
+  document.body.classList.toggle('ai-collapsed', collapsed);
+  document.getElementById('ai-toggle').classList.toggle('active', !collapsed);
+}
+
+const EFFORTS = [['low', '低'], ['medium', '中'], ['high', '高'], ['xhigh', '很高'], ['max', '最高']];
 
 async function refreshConfig() {
   config = await window.ide.ai.config();
@@ -498,7 +506,7 @@ function onEvent(e) {
       break;
     }
     case 'usage':
-      renderUsage(e.usage, e.model, e.channel);
+      renderUsage(e.usage, e.model, e.channel, e.aux);
       break;
     case 'notice': {
       const el = h('<div class="ai-note"></div>');
@@ -541,10 +549,11 @@ function fmt(n) {
   return n >= 1000 ? (n / 1000).toFixed(n >= 10000 ? 0 : 1) + 'k' : String(n);
 }
 
-function renderUsage(u, model, channel) {
+function renderUsage(u, model, channel, aux) {
   usageEl.textContent = `${channel === 'subscription' ? '订阅' : 'API'} · 本轮 输入 ${fmt(u.input + u.cacheRead + u.cacheWrite)}${u.cacheRead ? `（缓存 ${fmt(u.cacheRead)}）` : ''} · 输出 ${fmt(u.output)} tokens`;
   usageEl.title = `模型：${model}
-${channel === 'subscription' ? '通过本机 Claude Code 使用订阅额度' : '通过 API Key 计费'}`;
+${channel === 'subscription' ? '通过本机 Claude Code 使用订阅额度' : '通过 API Key 计费'}${aux && aux.length ? `
+Claude Code 的辅助调用（不是回复用的模型）：${aux.join('、')}` : ''}`;
 }
 
 function autoGrow() {
@@ -644,13 +653,14 @@ export function initAiPanel(state) {
       <div class="view-actions">
         <button class="icon-btn" data-a="new" title="新对话">${icon('plus')}</button>
         <button class="icon-btn" data-a="settings" title="AI 设置">${icon('gear')}</button>
-        <button class="icon-btn" data-a="close" title="关闭 (Ctrl+Alt+I)">${icon('close')}</button>
+        <button class="icon-btn ai-collapse-btn" data-a="collapse" title="折叠 (Ctrl+Alt+I)">${icon('chevron')}</button>
       </div></div>
     <div class="ai-body"></div>
     <div class="ai-footer">
       <div class="ai-context"></div>
       <div class="ai-input-wrap"><textarea class="ai-input" rows="1" placeholder="让 AI 帮你写代码、改 bug、解释项目…（Enter 发送，Shift+Enter 换行）" spellcheck="false"></textarea><button class="ai-send" title="发送 (Enter)"></button></div>
-      <div class="ai-meta"><span class="ai-usage"></span><div class="seg ai-mode" title="AI 的权限"><button data-m="ask" title="修改文件、运行命令都要先确认">每次确认</button><button data-m="edits" title="自动应用文件修改，运行命令仍需确认">自动改文件</button><button data-m="auto" title="修改文件和运行命令都不再确认">全自动</button></div></div>
+      <div class="ai-meta"><label class="ai-effort" title="思考强度：越高越仔细，也越慢、越耗额度"><span>强度</span><select>${EFFORTS.map(([v, l]) => `<option value="${v}">${l}</option>`).join('')}</select></label><div class="seg ai-mode" title="AI 的权限"><button data-m="ask" title="修改文件、运行命令都要先确认">每次确认</button><button data-m="edits" title="自动应用文件修改，运行命令仍需确认">自动改文件</button><button data-m="auto" title="修改文件和运行命令都不再确认">全自动</button></div></div>
+      <div class="ai-usage"></div>
     </div>`;
   bodyEl = panel.querySelector('.ai-body');
   listEl = h('<div class="ai-list"></div>');
@@ -659,10 +669,14 @@ export function initAiPanel(state) {
   ctxEl = panel.querySelector('.ai-context');
   usageEl = panel.querySelector('.ai-usage');
   const modeEl = panel.querySelector('.ai-mode');
+  const effortEl = panel.querySelector('.ai-effort select');
   const showMode = () => {
     const m = ctx.settings.aiAutoRun && ctx.settings.aiAutoApply ? 'auto' : ctx.settings.aiAutoApply ? 'edits' : 'ask';
     modeEl.querySelectorAll('button').forEach((b) => b.classList.toggle('active', b.dataset.m === m));
+    effortEl.value = ctx.settings.aiEffort || 'high';
   };
+  // 下一条消息开始生效，当前对话不会中断
+  effortEl.onchange = () => updateSettings({ aiEffort: effortEl.value });
   modeEl.querySelectorAll('button').forEach((b) => {
     b.onclick = () => updateSettings({ aiAutoApply: b.dataset.m !== 'ask', aiAutoRun: b.dataset.m === 'auto' });
   });
@@ -678,7 +692,8 @@ export function initAiPanel(state) {
   });
   sendBtn.onclick = () => (running ? window.ide.ai.stop(sessionId) : send(inputEl.value));
   panel.querySelector('[data-a=new]').onclick = newChat;
-  panel.querySelector('[data-a=close]').onclick = () => togglePanel(false);
+  panel.querySelector('[data-a=collapse]').onclick = () => togglePanel(false);
+  document.getElementById('ai-toggle').onclick = () => togglePanel();
   panel.querySelector('[data-a=settings]').onclick = () => import('./settings-view.js').then((m) => m.openSettings('ai'));
 
   window.ide.ai.onEvent(onEvent);
@@ -694,13 +709,13 @@ export function initAiPanel(state) {
   for (const g of editors.allGroups()) attachEditorActions(g.editor);
 
   setupSash(state);
-  if (state.aiHidden === false) togglePanel(true);
-  else document.body.classList.add('ai-hidden');
+  // 默认展开；只有上次手动折叠过才保持折叠
+  setCollapsed(state.aiHidden === true);
   renderContextChip();
   refreshConfig();
 
   const C = (id, title, key, run) => registerCommand({ id, title, category: 'AI', key, run });
-  C('ai.toggle', '打开/关闭 AI 助手', 'Ctrl+Alt+I', () => togglePanel());
+  C('ai.toggle', '展开/折叠 AI 助手', 'Ctrl+Alt+I', () => togglePanel());
   C('ai.newChat', '新对话', null, newChat);
   C('ai.edit', '修改选中的代码…', 'Ctrl+Alt+K', editSelection);
   C('ai.explain', '解释选中的代码', null, explainSelection);
