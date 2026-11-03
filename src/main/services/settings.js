@@ -39,6 +39,7 @@ const DEFAULTS = {
   aiAutoRun: false, // 自动运行 AI 请求的命令
   aiWebSearch: true, // 允许 AI 搜索网页（仅官方接口）
   aiProjectsDir: '', // AI 新建项目的默认位置，留空为“文档/LumenProjects”
+  autoUpdate: true, // 后台自动检查并下载更新，退出时安装
   pythonPath: '', // 调试用的 Python 解释器，留空自动查找
   runCommands: {}, // 例如 { ".py": "python -u \"${file}\"" }
   lsp: {}, // 例如 { "go": { "command": "gopls", "args": [] } }

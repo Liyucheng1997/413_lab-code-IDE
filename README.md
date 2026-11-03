@@ -6,8 +6,10 @@
 
 到 [Releases](https://github.com/Liyucheng1997/lumen-ide/releases/latest) 下载 Windows 版：
 
-- `Lumen-IDE-Setup-1.2.0.exe`：安装版，可选择安装位置，创建桌面和开始菜单快捷方式
-- `Lumen-IDE-1.2.0-portable.exe`：便携版，免安装，双击即用
+- `Lumen-IDE-Setup-1.3.0.exe`：安装版，可选择安装位置，创建桌面和开始菜单快捷方式，**自动更新**
+- `Lumen-IDE-1.3.0-portable.exe`：便携版，免安装，双击即用（有新版本时只提示，需要手动下载）
+
+安装版从 1.3.0 起会自动更新：启动后和每隔 4 小时检查一次新版本，在后台下载，下载完成后可以点“立即重启”，或者等下次关闭 IDE 时自动安装（沿用原来的安装位置）。也可以在 帮助 → 检查更新 手动检查，或在 设置 → 更新 中关闭自动更新。1.2.0 及更早的版本需要手动安装一次 1.3.0。
 
 安装包没有代码签名，首次运行时 Windows SmartScreen 可能提示“已保护你的电脑”，点“更多信息 → 仍要运行”即可。
 
@@ -18,6 +20,12 @@ npm install     # 首次运行
 npm start       # 启动 IDE
 npm run dev     # 启动并打开开发者工具
 npm run dist    # 打包 Windows 安装版和便携版到 dist/
+```
+
+发布新版本：改 `package.json` 里的版本号，`npm run dist`，然后把 `dist/` 里的安装包、便携版、`latest.yml` 和 `.blockmap` 一起上传到 GitHub Release（自动更新靠 `latest.yml` 找到新版本，`.blockmap` 用于增量下载）：
+
+```bash
+gh release create v1.3.0 dist/Lumen-IDE-Setup-1.3.0.exe dist/Lumen-IDE-Setup-1.3.0.exe.blockmap dist/Lumen-IDE-1.3.0-portable.exe dist/latest.yml --title "Lumen IDE 1.3.0" --notes-file notes.md
 ```
 
 也可以把文件夹路径作为参数：`npx electron . D:\my-project`。
@@ -130,6 +138,7 @@ src/main/                 主进程
     runner.js             “运行当前文件”命令生成
     dap-service.js        调试会话（Debug Adapter Protocol 客户端）
     ai-service.js         AI 助手：调用 Claude API、对话与工具调用循环、加密保存 API Key
+    update-service.js     自动更新（electron-updater + GitHub Releases）
     node-adapter.js       内置的 Node.js 调试适配器（DAP ↔ Chrome DevTools 协议）
     settings.js           设置与会话状态
 src/renderer/             界面
@@ -140,6 +149,7 @@ src/renderer/             界面
   js/debug-console.js     调试控制台
   js/ai-panel.js          AI 助手面板
   js/ai-tools.js          AI 助手的工具执行（读写文件、搜索、运行命令）
+  js/update.js            更新提示、状态栏下载进度、检查更新
   js/explorer.js / search-view.js / git-view.js / run-view.js / terminal.js ...
 ```
 

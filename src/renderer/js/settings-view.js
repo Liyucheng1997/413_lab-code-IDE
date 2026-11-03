@@ -1,6 +1,7 @@
 // 设置界面：分组表单，修改即时生效；也可以直接编辑 settings.json。
 import { ctx, updateSettings } from './state.js';
-import { escapeHtml, h } from './util.js';
+import { bus, escapeHtml, h } from './util.js';
+import { updateStatus } from './update.js';
 import { modal, toast } from './ui.js';
 import * as editors from './editors.js';
 import { allCommands, keyLabel } from './commands.js';
@@ -12,6 +13,7 @@ const SECTIONS = [
   ['terminal', '终端'],
   ['run', '运行与语言'],
   ['ai', 'AI 助手'],
+  ['update', '更新'],
   ['keys', '快捷键'],
 ];
 
@@ -56,6 +58,8 @@ const DEFS = [
   { s: 'ai', key: 'aiAutoRun', title: '全自动', desc: '开启后运行命令、新建项目、删除文件也不再确认。建议只在信任的项目中开启', type: 'bool' },
   { s: 'ai', key: 'aiWebSearch', title: '允许搜索网页', desc: '让 AI 查文档、查报错（仅官方接口，搜索按次计费）', type: 'bool' },
   { s: 'ai', key: 'aiProjectsDir', title: '新项目默认位置', desc: 'AI 新建项目时的默认父目录。留空则使用当前工作区的上一级，或“文档/LumenProjects”', type: 'text' },
+  { s: 'update', key: 'autoUpdate', title: '自动更新', desc: '启动后和每隔 4 小时检查一次新版本，在后台下载，关闭 IDE 时自动安装。便携版只提示，不自动安装', type: 'bool' },
+  { s: 'update', key: '__update', title: '检查更新', desc: '立即检查 GitHub 上是否有新版本', type: 'update' },
   { s: 'run', key: 'pythonPath', title: 'Python 解释器', desc: '调试 Python 时使用的解释器完整路径，留空则使用 PATH 中的 python。需要安装 debugpy', type: 'text' },
   { s: 'run', key: 'runCommands', title: '自定义运行命令', desc: '按扩展名覆盖 F5 运行命令。可用变量：${file} ${fileDir} ${fileBase} ${fileNoExt} ${outFile}', type: 'json', placeholder: '{\n  ".py": "python -u \\"${file}\\""\n}' },
   { s: 'run', key: 'lsp', title: '自定义语言服务器', desc: '按语言 ID 指定服务器命令，例如 { "go": { "command": "gopls", "args": [] } }', type: 'json', placeholder: '{\n  "cpp": { "command": "clangd", "args": [] }\n}' },
@@ -135,6 +139,18 @@ function control(def) {
         show();
       };
       show();
+      break;
+    }
+    case 'update': {
+      el = h(`<div class="ai-key-ctl"><button class="btn btn-sm">检查更新</button><div class="setting-desc"></div></div>`);
+      const state = el.querySelector('.setting-desc');
+      const show = (s) => {
+        const tail = { checking: '正在检查…', none: '已是最新', downloading: `正在下载 ${s.version}（${s.percent || 0}%）`, downloaded: `${s.version} 已下载，重启后生效`, available: `有新版本 ${s.version}`, error: `检查失败：${s.message}` }[s.state];
+        state.textContent = `当前版本 ${ctx.info.version}${tail ? ' · ' + tail : ''}`;
+      };
+      show(updateStatus());
+      const off = bus.on('update:changed', (s) => (el.isConnected ? show(s) : off()));
+      el.querySelector('button').onclick = () => window.ide.update.check();
       break;
     }
     default:

@@ -604,3 +604,14 @@ body.ai-hidden #ai-panel, body.ai-hidden #sash-ai { display: none; }
 .ai-key-ctl { display: flex; flex-wrap: wrap; gap: 6px; width: 300px; justify-content: flex-end; }
 .ai-key-ctl .input { width: 100% !important; }
 .ai-key-ctl .ai-key-state { width: 100%; text-align: right; }
+
+/* 自动更新 */
+.sb-item.sb-accent { color: var(--primary); font-weight: 500; }
+.update-notice { position: fixed; right: 16px; bottom: 40px; z-index: 3500; width: 340px; max-width: calc(100vw - 32px); background: var(--panel); border-radius: var(--r-lg); box-shadow: var(--shadow-pop); padding: 16px 18px 14px; display: flex; flex-direction: column; gap: 6px; opacity: 0; transform: translateY(10px) scale(0.98); transition: opacity 0.25s, transform 0.35s var(--spring); }
+.update-notice.show { opacity: 1; transform: none; }
+.update-notice-title { font-size: 14px; font-weight: 600; color: var(--text); }
+.update-notice-msg { font-size: 12.5px; line-height: 1.55; color: var(--text-2); }
+.update-notice details { font-size: 12.5px; color: var(--text-2); }
+.update-notice summary { cursor: pointer; color: var(--primary); user-select: none; }
+.update-notice-notes { margin-top: 6px; max-height: 180px; overflow: auto; white-space: pre-wrap; line-height: 1.5; background: var(--panel-2); border-radius: var(--r-sm); padding: 8px 10px; user-select: text; }
+.update-notice-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 6px; }

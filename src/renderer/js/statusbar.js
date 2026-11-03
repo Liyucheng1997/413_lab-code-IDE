@@ -114,6 +114,7 @@ export function initStatusbar() {
   item(right, 'encoding', { title: '文件编码' });
   item(right, 'eol', { title: '切换行尾序列', onClick: toggleEol });
   item(right, 'lang', { title: '选择语言模式', onClick: pickLanguage });
+  item(right, 'update', { onClick: () => items.update.dataset.cmd && runCommand(items.update.dataset.cmd) }).hidden = true;
   item(right, 'notify', { title: '快捷键', onClick: () => runCommand('help.keys') }).innerHTML = icon('keyboard');
 
   items.branch.hidden = true;
@@ -129,6 +130,24 @@ export function initStatusbar() {
   bus.on('debug:changed', (s) => {
     items.debug.hidden = !s;
     if (s) items.debug.innerHTML = `<span class="dot ${s.status === 'stopped' ? 'warning' : 'success'}"></span><span>${s.status === 'stopped' ? '已暂停' : s.status === 'starting' ? '正在启动调试' : '调试中'}${s.label ? ' · ' + escapeHtml(s.label) : ''}</span>`;
+  });
+  bus.on('update:changed', (s) => {
+    const el = items.update;
+    el.hidden = !['downloading', 'downloaded', 'available'].includes(s.state);
+    el.classList.toggle('sb-accent', s.state !== 'downloading');
+    if (s.state === 'downloading') {
+      el.innerHTML = `${icon('download')}<span>${s.percent || 0}%</span>`;
+      el.title = `正在下载 Lumen IDE ${s.version}`;
+      el.dataset.cmd = '';
+    } else if (s.state === 'downloaded') {
+      el.innerHTML = `${icon('refresh')}<span>重启以更新</span>`;
+      el.title = `Lumen IDE ${s.version} 已下载，点击重启完成更新`;
+      el.dataset.cmd = 'update.restart';
+    } else if (s.state === 'available') {
+      el.innerHTML = `${icon('download')}<span>新版本 ${escapeHtml(s.version)}</span>`;
+      el.title = '前往下载页';
+      el.dataset.cmd = 'update.download';
+    }
   });
   bus.on('git:status', (s) => {
     if (!s || !s.isRepo) {

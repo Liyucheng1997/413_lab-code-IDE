@@ -117,6 +117,12 @@ contextBridge.exposeInMainWorld('ide', {
     onEvent: on('ai:event'),
     onToolCall: on('ai:tool-call'),
   },
+  update: {
+    status: invoke('update:status'),
+    check: invoke('update:check'),
+    install: invoke('update:install'),
+    onStatus: on('update:status'),
+  },
   dap: {
     start: invoke('dap:start'),
     request: invoke('dap:request'),

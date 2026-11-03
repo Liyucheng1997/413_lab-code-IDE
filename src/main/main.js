@@ -12,6 +12,7 @@ const lspService = require('./services/lsp-service');
 const runner = require('./services/runner');
 const dapService = require('./services/dap-service');
 const aiService = require('./services/ai-service');
+const updateService = require('./services/update-service');
 
 const ROOT = path.join(__dirname, '..', '..');
 const isDev = process.argv.includes('--dev');
@@ -22,6 +23,7 @@ protocol.registerSchemesAsPrivileged([
 ]);
 
 let mainWindow = null;
+let forceClose = false; // 为 true 时关闭窗口不再询问渲染进程（确认关闭、安装更新）
 
 function themeColors() {
   const dark = settings.isDark();
@@ -72,7 +74,6 @@ function createWindow() {
   mainWindow.on('move', saveBounds);
 
   // 关闭前让渲染进程检查未保存文件
-  let forceClose = false;
   mainWindow.on('close', (e) => {
     if (forceClose) return;
     e.preventDefault();
@@ -117,6 +118,7 @@ function createWindow() {
   lspService.setSender(send);
   dapService.setSender(send);
   aiService.setSender(send);
+  updateService.init({ send, beforeInstall: () => (forceClose = true) });
 }
 
 function registerIpc() {
@@ -177,6 +179,7 @@ function registerIpc() {
   runner.register(ipcMain);
   dapService.register(ipcMain);
   aiService.register(ipcMain);
+  updateService.register(ipcMain);
 }
 
 app.whenReady().then(() => {

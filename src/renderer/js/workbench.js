@@ -311,7 +311,7 @@ function menus() {
       cmdItem('lsp.restart'),
     ]],
     ['终端', [cmdItem('terminal.new'), cmdItem('terminal.kill'), cmdItem('terminal.clear'), { type: 'sep' }, cmdItem('terminal.runSelection')]],
-    ['帮助', [cmdItem('help.welcome'), cmdItem('help.keys'), { type: 'sep' }, cmdItem('help.devtools'), cmdItem('app.reload'), { type: 'sep' }, cmdItem('help.about')]],
+    ['帮助', [cmdItem('help.welcome'), cmdItem('help.keys'), { type: 'sep' }, cmdItem('update.check'), { type: 'sep' }, cmdItem('help.devtools'), cmdItem('app.reload'), { type: 'sep' }, cmdItem('help.about')]],
   ];
 }
 
@@ -443,6 +443,13 @@ async function preloadScripts() {
   }
 }
 
+// 关闭窗口或重启安装更新之前：处理未保存的文件并保存会话状态
+export async function prepareClose() {
+  if (!(await confirmDirty())) return false;
+  flushState();
+  return true;
+}
+
 async function confirmDirty() {
   const dirty = editors.dirtyDocs();
   if (!dirty.length) return true;
@@ -498,9 +505,13 @@ function about() {
   const m = modal({
     title: '关于 Lumen IDE',
     body: `<div class="modal-body"><div class="modal-msg">版本 ${escapeHtml(ctx.info.version)}\nElectron ${escapeHtml(ctx.info.electron)}\n编辑器内核：Monaco Editor\n终端：xterm.js + node-pty\nPython 语言服务：Pyright\n\n设置文件：${escapeHtml(ctx.info.settingsPath)}</div></div>`,
-    footer: '<div class="modal-footer"><button class="btn btn-primary">好</button></div>',
+    footer: '<div class="modal-footer"><button class="btn" data-a="update">检查更新</button><button class="btn btn-primary" data-a="ok">好</button></div>',
   });
-  m.el.querySelector('.btn').onclick = () => m.close();
+  m.el.querySelector('[data-a=ok]').onclick = () => m.close();
+  m.el.querySelector('[data-a=update]').onclick = () => {
+    m.close();
+    runCommand('update.check');
+  };
 }
 
 function shortcutsTab() {
@@ -705,9 +716,7 @@ export async function initWorkbench(state) {
   });
 
   window.ide.app.onBeforeClose(async () => {
-    if (!(await confirmDirty())) return;
-    flushState();
-    window.ide.app.confirmClose();
+    if (await prepareClose()) window.ide.app.confirmClose();
   });
 }
 
