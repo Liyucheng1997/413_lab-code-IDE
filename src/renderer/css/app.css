@@ -297,6 +297,112 @@ kbd { font-family: var(--font); font-size: 11px; padding: 2px 6px; border-radius
 .log-item .meta { color: var(--text-3); font-size: 11.5px; font-variant-numeric: tabular-nums; }
 .log-item .ref { color: var(--primary); font-weight: 500; }
 
+/* Git 管理页 */
+.gm { display: flex; flex-direction: column; height: 100%; min-height: 0; }
+.gm-head { display: flex; align-items: center; gap: 16px; padding: 22px 28px 14px; flex-wrap: wrap; }
+.gm-title { flex: 1; min-width: 200px; }
+.gm-name { display: flex; align-items: center; gap: 10px; font-size: 22px; font-weight: 600; letter-spacing: -0.02em; }
+.gm-name svg { width: 22px; height: 22px; color: var(--primary); }
+.gm-sub { display: flex; align-items: center; gap: 8px; margin-top: 6px; font-size: 12.5px; flex-wrap: wrap; }
+.gm-chip { display: inline-flex; align-items: center; gap: 5px; height: 22px; padding: 0 10px; border-radius: 99px; background: var(--primary-soft); color: var(--primary); font-weight: 500; }
+.gm-chip svg { width: 13px; height: 13px; }
+.gm-busy { display: inline-flex; align-items: center; gap: 5px; color: var(--primary); }
+.gm-busy svg { width: 13px; height: 13px; }
+.gm-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.gm-actions .btn svg { width: 14px; height: 14px; }
+.gm-actions .btn:disabled { opacity: 0.5; cursor: default; transform: none; }
+.gm-tabs { padding: 0 28px 14px; }
+.gm-body { flex: 1; min-height: 0; overflow: auto; padding: 0 28px 28px; }
+.gm-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 14px; margin-top: 14px; }
+.gm-card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); padding: 14px 16px; margin-bottom: 14px; min-width: 0; }
+.gm-grid .gm-card { margin-bottom: 0; }
+.gm-card-title { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; margin-bottom: 10px; }
+.gm-card-title > span { display: flex; align-items: center; gap: 6px; }
+.gm-card-title svg { width: 15px; height: 15px; color: var(--text-2); }
+.gm-card-title .gm-link { margin-left: auto; font-weight: 400; font-size: 12.5px; }
+.gm-kv { display: grid; grid-template-columns: 84px 1fr; gap: 8px 12px; font-size: 13px; line-height: 1.55; }
+.gm-kv .k { color: var(--text-3); }
+.gm-kv .v { min-width: 0; overflow-wrap: anywhere; }
+.gm-kv .v .muted { font-size: 12px; }
+.gm-link { color: var(--primary); cursor: pointer; text-decoration: none; }
+.gm-link:hover { text-decoration: underline; }
+.gm .mono { font-family: var(--mono); font-size: 12px; }
+.gm-pill { display: inline-flex; align-items: center; gap: 3px; height: 19px; padding: 0 8px; border-radius: 99px; font-size: 11px; font-weight: 500; background: var(--fill); color: var(--text-2); vertical-align: 1px; white-space: nowrap; }
+.gm-pill svg { width: 11px; height: 11px; }
+.gm-pill.ok { background: var(--success-bg); color: var(--success); }
+.gm-pill.warn { background: var(--warning-bg); color: var(--warning); }
+.gm-pill.info { background: var(--primary-soft); color: var(--primary); }
+.gm-ref { display: inline-block; padding: 0 6px; margin-right: 4px; border-radius: 5px; font-size: 11px; font-weight: 500; line-height: 17px; background: var(--fill); color: var(--text-2); }
+.gm-ref.head { background: var(--primary-soft); color: var(--primary); }
+.gm-ref.remote { background: var(--success-bg); color: var(--success); }
+.gm-ref.tag { background: var(--warning-bg); color: var(--warning); }
+.gm-banner { display: flex; align-items: center; gap: 12px; padding: 14px 16px; border-radius: var(--r); background: var(--success-bg); }
+.gm-banner > svg { width: 20px; height: 20px; color: var(--success); }
+.gm-banner.warn { background: var(--warning-bg); }
+.gm-banner.warn > svg { color: var(--warning); }
+.gm-banner.info { background: var(--primary-soft); }
+.gm-banner.info > svg { color: var(--primary); }
+.gm-banner .txt { flex: 1; min-width: 0; font-size: 13.5px; font-weight: 500; }
+.gm-banner .txt .muted { font-size: 12px; font-weight: 400; margin-top: 2px; }
+.gm-banner .btn svg { width: 14px; height: 14px; }
+.gm-note { font-size: 13px; color: var(--text-2); line-height: 1.6; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.gm-note svg { width: 14px; height: 14px; }
+.gm-note code { font-family: var(--mono); font-size: 12px; background: var(--fill); padding: 1px 5px; border-radius: 5px; }
+.gm-btns { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+.gm-btns .btn svg { width: 14px; height: 14px; }
+.gm-gh-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.gm-gh-name { font-size: 15px; font-weight: 600; }
+.gm-gh-desc { margin-top: 6px; font-size: 13px; color: var(--text-2); line-height: 1.55; }
+.gm-gh-stats { display: flex; gap: 14px; flex-wrap: wrap; margin: 8px 0 12px; font-size: 12px; color: var(--text-3); font-variant-numeric: tabular-nums; }
+.gm-gh-commits { margin-top: 14px; }
+.gm-sub-title { display: flex; align-items: center; font-size: 11.5px; font-weight: 600; color: var(--text-3); margin: 0 0 6px; letter-spacing: 0.02em; }
+.gm-commit { padding: 6px 8px; border-radius: 8px; font-size: 13px; cursor: default; }
+.gm-commit:hover { background: var(--hover); }
+.gm-commit.selected { background: var(--primary-soft); }
+.gm-commit.missing .subj { color: var(--warning); }
+.gm-commit .subj { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gm-commit .meta { color: var(--text-3); font-size: 11.5px; margin-top: 1px; font-variant-numeric: tabular-nums; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gm-row { display: flex; align-items: center; gap: 12px; padding: 9px 8px; border-radius: 9px; }
+.gm-row + .gm-row { border-top: 1px solid var(--line); }
+.gm-row:hover { background: var(--hover); }
+.gm-row.clickable { cursor: default; }
+.gm-row .main { flex: 1; min-width: 0; }
+.gm-row .title { display: flex; align-items: center; gap: 7px; font-size: 13px; flex-wrap: wrap; }
+.gm-row .title svg { width: 14px; height: 14px; color: var(--text-3); }
+.gm-row .meta { color: var(--text-3); font-size: 12px; margin-top: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gm-row .acts { display: flex; align-items: center; gap: 4px; flex: none; }
+.gm-stash-files { padding: 0 0 8px 22px; }
+.gm-history { display: grid; grid-template-columns: minmax(280px, 2fr) 3fr; gap: 14px; height: 100%; min-height: 420px; }
+.gm-body:has(.gm-history) { overflow: hidden; }
+.gm-hlist, .gm-hdetail { border: 1px solid var(--line); border-radius: var(--r); min-height: 0; overflow: auto; }
+.gm-hlist { display: flex; flex-direction: column; overflow: hidden; }
+.gm-hbar { display: flex; align-items: center; gap: 10px; padding: 10px; border-bottom: 1px solid var(--line); }
+.gm-hbar .input { flex: 1; min-width: 0; height: 30px; font-size: 13px; }
+.gm-hitems { flex: 1; overflow: auto; padding: 6px; }
+.gm-more { display: flex; margin: 8px auto; }
+.gm-hdetail { padding: 16px; overflow-x: hidden; }
+.gm-dhead { margin-bottom: 14px; }
+.gm-dsubj { font-size: 16px; font-weight: 600; line-height: 1.45; letter-spacing: -0.01em; overflow-wrap: anywhere; }
+.gm-dbody { margin: 10px 0 0; white-space: pre-wrap; font-family: var(--font); font-size: 13px; line-height: 1.6; color: var(--text-2); }
+.gm-files { margin-top: 18px; }
+.gm-num { font-size: 11.5px; font-variant-numeric: tabular-nums; color: var(--text-3); white-space: nowrap; }
+.gm-num .add { color: var(--git-added); }
+.gm-num .del { color: var(--git-deleted); }
+.gm-check { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--text-2); white-space: nowrap; user-select: none; }
+.gm-form .gm-field { margin-top: 12px; }
+.gm-form .gm-field .lbl { font-size: 12px; color: var(--text-2); margin-bottom: 6px; }
+.gm-form .gm-field .input { width: 100%; }
+.gm-form .gm-check { margin-top: 14px; }
+.gm-form .gm-err { color: var(--danger); margin: 10px 0 0; }
+.git-branch-bar .spacer { flex: 1; }
+.git-sync-btn { display: inline-flex; align-items: center; gap: 4px; height: 22px; padding: 0 8px; border: 0; border-radius: 99px; background: var(--fill); color: var(--text-2); font-size: 11.5px; font-variant-numeric: tabular-nums; }
+.git-sync-btn:hover { background: var(--fill-hover); color: var(--text); }
+.git-sync-btn svg { width: 12px !important; height: 12px !important; }
+.log-item { cursor: default; }
+@media (max-width: 760px) {
+  .gm-history { grid-template-columns: 1fr; }
+}
+
 /* 运行视图 */
 .run-card { margin: 0 10px 10px; padding: 14px; border-radius: 14px; background: var(--panel-2); font-size: 12.5px; color: var(--text-2); line-height: 1.6; }
 .run-card b { color: var(--text); font-weight: 600; font-size: 13px; }

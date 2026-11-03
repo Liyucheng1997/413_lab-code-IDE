@@ -79,6 +79,18 @@ contextBridge.exposeInMainWorld('ide', {
     init: invoke('git:init'),
     lineChanges: invoke('git:line-changes'),
     run: invoke('git:run'),
+    info: invoke('git:info'),
+    compare: invoke('git:compare'),
+    logPage: invoke('git:log-page'),
+    commitDetail: invoke('git:commit-detail'),
+    fileAtCommit: invoke('git:file-at-commit'),
+    sync: invoke('git:sync'),
+    clone: invoke('git:clone'),
+  },
+  github: {
+    status: invoke('github:status'),
+    repo: invoke('github:repo'),
+    publish: invoke('github:publish'),
   },
   term: {
     create: invoke('term:create'),

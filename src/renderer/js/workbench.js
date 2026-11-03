@@ -6,7 +6,7 @@ import { showMenu, closeMenus, confirm, toast, modal } from './ui.js';
 import { registerCommand, runCommand, getCommand, keyLabel } from './commands.js';
 import * as editors from './editors.js';
 import * as explorer from './explorer.js';
-import { refreshGit, switchBranch } from './git-view.js';
+import { refreshGit, switchBranch, syncNow, fetchNow, pullNow, pushNow, openManager } from './git-view.js';
 import { focusSearch } from './search-view.js';
 import { quickOpen, commandPalette, gotoLine, openPicker } from './palette.js';
 import { newTerminal, killTerminal, clearTerminal, focusTerminal, terminalActions, activeTerminal } from './terminal.js';
@@ -190,6 +190,7 @@ function menus() {
       cmdItem('file.open'),
       cmdItem('workbench.openFolder'),
       { label: '打开最近的文件夹', submenu: recentItems },
+      cmdItem('git.clone'),
       { type: 'sep' },
       cmdItem('file.save'),
       cmdItem('file.saveAs'),
@@ -311,6 +312,19 @@ function menus() {
       cmdItem('lsp.restart'),
     ]],
     ['终端', [cmdItem('terminal.new'), cmdItem('terminal.kill'), cmdItem('terminal.clear'), { type: 'sep' }, cmdItem('terminal.runSelection')]],
+    ['Git', [
+      cmdItem('git.manager'),
+      cmdItem('git.history'),
+      { type: 'sep' },
+      cmdItem('git.sync'),
+      cmdItem('git.fetch'),
+      cmdItem('git.pull'),
+      cmdItem('git.push'),
+      { type: 'sep' },
+      cmdItem('git.checkout'),
+      cmdItem('git.publish'),
+      cmdItem('git.clone'),
+    ]],
     ['帮助', [cmdItem('help.welcome'), cmdItem('help.keys'), { type: 'sep' }, cmdItem('update.check'), { type: 'sep' }, cmdItem('help.devtools'), cmdItem('app.reload'), { type: 'sep' }, cmdItem('help.about')]],
   ];
 }
@@ -636,8 +650,14 @@ function registerAll() {
 
   C('git.checkout', '切换分支…', 'Git', null, switchBranch);
   C('git.refresh', '刷新', 'Git', null, refreshGit);
-  C('git.pull', '拉取', 'Git', null, () => ctx.root && window.ide.git.run(ctx.root, ['pull']).then((o) => toast(o || '已是最新', 'success')).catch((e) => toast(e.message, 'error')).finally(refreshGit));
-  C('git.push', '推送', 'Git', null, () => ctx.root && window.ide.git.run(ctx.root, ['push']).then(() => toast('推送完成', 'success')).catch((e) => toast(e.message, 'error')).finally(refreshGit));
+  C('git.sync', '同步（拉取并推送）', 'Git', null, syncNow);
+  C('git.fetch', '获取', 'Git', null, () => fetchNow());
+  C('git.pull', '拉取', 'Git', null, pullNow);
+  C('git.push', '推送', 'Git', null, pushNow);
+  C('git.manager', '打开 Git 管理', 'Git', 'Ctrl+Alt+G', () => openManager());
+  C('git.history', '查看提交历史', 'Git', null, () => openManager('history'));
+  C('git.publish', '发布到 GitHub…', 'Git', null, () => import('./git-manager.js').then((m) => m.publishDialog()));
+  C('git.clone', '克隆仓库…', 'Git', null, () => import('./git-manager.js').then((m) => m.cloneRepo()));
 
   C('help.welcome', '欢迎页', '帮助', null, () => editors.showWelcome());
   C('help.keys', '键盘快捷方式', '帮助', null, shortcutsTab);

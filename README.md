@@ -43,7 +43,7 @@ gh release create v1.3.0 dist/Lumen-IDE-Setup-1.3.0.exe dist/Lumen-IDE-Setup-1.3
 | 调试 | F5 断点调试 **Python**（debugpy）、**JavaScript**（Node.js，内置适配器）、**C/C++**（GDB 14+）：断点 / 条件断点 / 日志点、单步跳过/进入/跳出、运行到光标处、变量树、监视表达式、调用堆栈、异常断点、悬停查看变量值、调试控制台求值 |
 | AI 助手 | 右侧对话面板，默认使用 **Claude Opus 5.5**（`claude-opus-5-5`）。能阅读整个项目、搜索代码、修改文件、运行命令；每次修改先显示差异，确认后才写入；支持右键“AI：修改代码 / 解释代码 / 修复问题” |
 | 运行 | Ctrl+F5 直接运行当前文件（Python、JS、TS、C/C++、Java、Go、Rust、C#、Ruby、PHP、Lua、Shell 等 20+ 种），任务运行（npm 脚本、Makefile、Cargo、Go） |
-| Git | 状态、暂存/取消暂存、放弃更改、提交（含修正）、分支切换/新建、拉取/推送/储藏、提交历史、差异对比、编辑器行号旁的修改标记 |
+| Git | 状态、暂存/取消暂存、放弃更改、提交（含修正）、差异对比、编辑器行号旁的修改标记；**Git 管理页**：仓库信息、对比 GitHub 上的版本（最新提交、发布、标签）、一键同步、提交历史与详情、分支/标签/远程/储藏管理、发布到 GitHub、克隆仓库 |
 | 其他 | 问题面板、输出面板、状态栏（光标、缩进、编码、换行符、语言模式）、设置界面 + settings.json、自动保存、保存时格式化 |
 
 ## 常用快捷键
@@ -64,6 +64,7 @@ gh release create v1.3.0 dist/Lumen-IDE-Setup-1.3.0.exe dist/Lumen-IDE-Setup-1.3
 | 单步跳过 / 进入 / 跳出 | F10 / F11 / Shift+F11 |
 | 拆分编辑器 | Ctrl+\\ |
 | 切换侧栏 / 面板 | Ctrl+B / Ctrl+J |
+| 打开 Git 管理 | Ctrl+Alt+G |
 | 打开 AI 助手 | Ctrl+Alt+I |
 | AI 修改选中的代码 | Ctrl+Alt+K |
 
@@ -93,6 +94,23 @@ gh release create v1.3.0 dist/Lumen-IDE-Setup-1.3.0.exe dist/Lumen-IDE-Setup-1.3
 | C / C++ | gcc/g++ 与 GDB 14+（MinGW-w64） | 自动以 `-g -O0` 编译当前文件后调试，程序输出显示在调试控制台 |
 
 右键行号左侧可以添加条件断点、日志点；在“运行和调试”侧栏里查看变量、监视表达式和调用堆栈；调试控制台底部的输入框可以在当前栈帧里求值。调试 Python 用的解释器可以在 设置 → 运行与语言 → Python 解释器 中指定。
+
+## Git 与 GitHub
+
+左侧“源代码管理”负责日常的暂存和提交；点它标题栏的 ▣ 图标、菜单 Git → 打开 Git 管理，或按 Ctrl+Alt+G，打开完整的 Git 管理页：
+
+| 页签 | 内容 |
+| --- | --- |
+| 概览 | 当前与远程是否同步（落后 / 领先几个提交，一键拉取、推送或同步）；本地仓库信息（分支、最新提交、提交总数、最新标签、提交身份）；GitHub 上的仓库信息：简介、Star/Fork/Issue、默认分支最新提交是否与本地一致、最新发布、本地还没有的标签和提交；待拉取 / 待推送的提交列表 |
+| 提交历史 | 搜索提交、查看全部分支；点开提交看完整说明、作者、父提交和改动的文件，点文件查看该提交的差异；从提交新建分支、打标签、挑选 (cherry-pick)、撤销 (revert)、重置 |
+| 分支 | 本地分支与跟踪状态（↑↓、远程已删除），切换、合并、推送、重命名、删除；远程分支检出、删除 |
+| 标签 | 新建标签（自动建议下一个版本号，可顺便推送），标出哪些已推送；推送 / 删除本地或远程标签；远程有而本地没有的标签 |
+| 远程 | 添加、修改地址、重命名、移除远程；没有远程时可一键“发布到 GitHub” |
+| 储藏 | 储藏当前更改（可含未跟踪文件），展开查看改动的文件，弹出、应用、删除 |
+
+**同步** = 获取 → 远程有新提交就拉取 → 本地有新提交就推送；分支还没有上游时会推送并建立跟踪。状态栏的 ⟳ 图标也能一键同步，并显示待拉取 / 待推送的数量。默认每 5 分钟在后台获取一次，可以在 设置 → Git 关闭，也可以让拉取改用 rebase。
+
+读取 GitHub 信息用的是 GitHub 公开接口；安装了 [GitHub CLI](https://cli.github.com/) 并 `gh auth login` 登录后，会自动带上登录凭据，可以查看私有仓库，并能用“发布到 GitHub”直接新建仓库并推送。推送、拉取的账号认证沿用本机 Git 的配置（Windows 上一般是 Git Credential Manager）。
 
 ## AI 助手
 
@@ -132,7 +150,7 @@ src/main/                 主进程
   services/
     fs-service.js         文件读写、目录、监听
     search-service.js     全局搜索替换
-    git-service.js        Git 命令封装
+    git-service.js        Git 命令封装、仓库信息、同步、GitHub 接口
     terminal-service.js   node-pty 终端
     lsp-service.js        语言服务器进程管理与 JSON-RPC
     runner.js             “运行当前文件”命令生成
@@ -150,7 +168,7 @@ src/renderer/             界面
   js/ai-panel.js          AI 助手面板
   js/ai-tools.js          AI 助手的工具执行（读写文件、搜索、运行命令）
   js/update.js            更新提示、状态栏下载进度、检查更新
-  js/explorer.js / search-view.js / git-view.js / run-view.js / terminal.js ...
+  js/explorer.js / search-view.js / git-view.js / git-manager.js / run-view.js / terminal.js ...
 ```
 
 ## 目前没有的功能

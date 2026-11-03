@@ -1,6 +1,6 @@
 {
   "name": "lumen-ide",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "description": "Lumen IDE - 一个基于 Electron + Monaco 的多语言代码编辑器",
   "author": "Yucheng LI",
   "license": "MIT",

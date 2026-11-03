@@ -12,6 +12,7 @@ const SECTIONS = [
   ['files', '文件'],
   ['terminal', '终端'],
   ['run', '运行与语言'],
+  ['git', 'Git'],
   ['ai', 'AI 助手'],
   ['update', '更新'],
   ['keys', '快捷键'],
@@ -49,6 +50,9 @@ const DEFS = [
 
   { s: 'terminal', key: 'terminalFontSize', title: '终端字号', type: 'number', min: 8, max: 40 },
   { s: 'terminal', key: 'terminalShell', title: '终端 Shell', desc: '留空自动选择（Windows 优先 pwsh，其次 PowerShell）。例如 cmd.exe、C:\\Program Files\\Git\\bin\\bash.exe', type: 'text' },
+
+  { s: 'git', key: 'gitAutoFetch', title: '自动获取', desc: '每 5 分钟在后台从远程获取一次，及时显示“落后 n 个提交”。不会改动你的文件', type: 'bool' },
+  { s: 'git', key: 'gitSyncRebase', title: '拉取时变基', desc: '拉取和同步时用 rebase 把本地提交接到远程之后，历史更整齐；关闭时使用 merge', type: 'bool' },
 
   { s: 'ai', key: '__aikey', title: 'API Key', desc: '你的 Claude API Key，用系统加密保存在本机，不会写进 settings.json', type: 'aikey' },
   { s: 'ai', key: 'aiBaseURL', title: 'Base URL', desc: '留空使用官方 API（api.anthropic.com）。使用代理或中转服务时填写其地址', type: 'text' },

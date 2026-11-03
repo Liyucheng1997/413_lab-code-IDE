@@ -7,6 +7,7 @@ import * as editors from './editors.js';
 import { lspStatus } from './lsp-client.js';
 import { runCommand } from './commands.js';
 import { openPicker, gotoLine } from './palette.js';
+import { gitBusy, syncTitle } from './git-view.js';
 
 let left;
 let right;
@@ -106,6 +107,7 @@ export function initStatusbar() {
   left = document.getElementById('sb-left');
   right = document.getElementById('sb-right');
   item(left, 'branch', { title: '切换分支', onClick: () => runCommand('git.checkout') });
+  item(left, 'sync', { title: '同步', onClick: () => runCommand('git.sync') });
   item(left, 'problems', { title: '问题 (Ctrl+Shift+M)', onClick: () => runCommand('view.problems') });
   item(left, 'lsp', { title: '', onClick: () => bus.emit('view:show', 'run') });
   item(left, 'debug', { title: '运行和调试', onClick: () => bus.emit('view:show', 'run') }).hidden = true;
@@ -118,6 +120,7 @@ export function initStatusbar() {
   item(right, 'notify', { title: '快捷键', onClick: () => runCommand('help.keys') }).innerHTML = icon('keyboard');
 
   items.branch.hidden = true;
+  items.sync.hidden = true;
   items.lsp.hidden = true;
   items.problems.innerHTML = `${icon('error')}<span>0</span>${icon('warning')}<span>0</span>`;
 
@@ -149,13 +152,25 @@ export function initStatusbar() {
       el.dataset.cmd = 'update.download';
     }
   });
+  let gitState = null;
+  const showSync = () => {
+    const s = gitState;
+    const busy = gitBusy();
+    items.sync.hidden = !s || !s.isRepo;
+    if (items.sync.hidden) return;
+    items.sync.innerHTML = `${icon('sync', busy ? 'spin' : '')}${s.behind ? `<span>${s.behind}↓</span>` : ''}${s.ahead ? `<span>${s.ahead}↑</span>` : ''}`;
+    items.sync.title = syncTitle();
+  };
   bus.on('git:status', (s) => {
+    gitState = s;
+    showSync();
     if (!s || !s.isRepo) {
       items.branch.hidden = true;
       return;
     }
     items.branch.hidden = false;
-    items.branch.innerHTML = `${icon('branch')}<span>${escapeHtml(s.branch)}${s.files.length ? '*' : ''}</span>${s.ahead || s.behind ? `<span>${s.behind ? '↓' + s.behind : ''}${s.ahead ? ' ↑' + s.ahead : ''}</span>` : ''}`;
+    items.branch.innerHTML = `${icon('branch')}<span>${escapeHtml(s.branch)}${s.files.length ? '*' : ''}</span>`;
   });
+  bus.on('git:busy', showSync);
   updateEditorItems();
 }

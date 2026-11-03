@@ -1,4 +1,4 @@
-// 源代码管理视图：暂存/取消暂存/放弃更改、提交、分支切换、推送拉取、历史、差异对比，以及编辑器行内修改标记。
+// 源代码管理视图：暂存/取消暂存/放弃更改、提交、分支切换、推送拉取同步、历史、差异对比，以及编辑器行内修改标记。
 import { ctx } from './state.js';
 import { bus, path, escapeHtml, fileIcon, debounce, h } from './util.js';
 import { icon } from './icons.js';
@@ -65,7 +65,8 @@ function render() {
   const prevMsg = body.querySelector('textarea') ? body.querySelector('textarea').value : '';
   body.innerHTML = '';
 
-  const branchBar = h(`<div class="git-branch-bar">${icon('branch')}<b>${escapeHtml(status.branch || '(无分支)')}</b>${status.upstream ? `<span class="muted">→ ${escapeHtml(status.upstream)}</span>` : ''}${status.ahead ? `<span class="tabular">↑${status.ahead}</span>` : ''}${status.behind ? `<span class="tabular">↓${status.behind}</span>` : ''}</div>`);
+  const branchBar = h(`<div class="git-branch-bar">${icon('branch')}<b>${escapeHtml(status.branch || '(无分支)')}</b>${status.upstream ? `<span class="muted">→ ${escapeHtml(status.upstream)}</span>` : ''}<span class="spacer"></span><button class="git-sync-btn" title="${escapeHtml(syncTitle())}">${icon('sync', busy ? 'spin' : '')}${status.behind ? `<span class="tabular">↓${status.behind}</span>` : ''}${status.ahead ? `<span class="tabular">↑${status.ahead}</span>` : ''}${!status.ahead && !status.behind ? `<span>${status.upstream ? '同步' : '发布'}</span>` : ''}</button></div>`);
+  branchBar.querySelector('.git-sync-btn').onclick = syncNow;
   body.appendChild(branchBar);
 
   const box = h(`<div class="commit-box"><textarea class="input" placeholder="提交信息（Ctrl+Enter 提交）" spellcheck="false"></textarea><div class="row-btns"><button class="btn btn-primary btn-sm">${icon('check')} 提交</button><button class="btn btn-sm" title="更多">${icon('more')}</button></div></div>`);
@@ -83,17 +84,19 @@ function render() {
         { label: '提交（修正上次提交）', action: () => doCommit(ta, { amend: true }) },
         { label: '提交全部（含未暂存）', action: () => doCommit(ta, { all: true }) },
         { type: 'sep' },
-        { label: '拉取 (pull)', icon: 'download', action: () => remote(['pull']) },
-        { label: '推送 (push)', icon: 'upload', action: () => remote(status.upstream ? ['push'] : ['push', '-u', 'origin', status.branch]) },
-        { label: '获取 (fetch)', icon: 'sync', action: () => remote(['fetch', '--all', '--prune']) },
+        { label: '同步（拉取并推送）', icon: 'sync', action: syncNow },
+        { label: '拉取 (pull)', icon: 'download', action: pullNow },
+        { label: '推送 (push)', icon: 'upload', action: pushNow },
+        { label: '获取 (fetch)', action: () => fetchNow() },
+        { label: '打开 Git 管理', icon: 'layout', action: () => openManager() },
         { type: 'sep' },
         { label: '切换分支…', icon: 'branch', action: switchBranch },
         { label: '新建分支…', action: createBranch },
         { type: 'sep' },
         { label: '暂存全部更改', action: () => stage(changes.map((f) => f.path)) },
         { label: '取消暂存全部', action: () => unstage(staged.map((f) => f.path)) },
-        { label: '储藏 (stash)', action: () => remote(['stash', 'push', '-u']) },
-        { label: '弹出储藏 (stash pop)', action: () => remote(['stash', 'pop']) },
+        { label: '储藏 (stash)', action: () => gitOp('储藏', ['stash', 'push', '-u']) },
+        { label: '弹出储藏 (stash pop)', action: () => gitOp('弹出储藏', ['stash', 'pop']) },
       ],
       r.left,
       r.bottom + 4,
@@ -176,6 +179,12 @@ function section(key, title, files, isStaged) {
 function logSection() {
   const wrap = document.createElement('div');
   const head = h(`<div class="section-title${sectionCollapsed.log ? ' collapsed' : ''}">${icon('chevronDown')}<span>提交历史</span></div>`);
+  const all = h(`<button class="btn-link" style="margin-left:auto;margin-right:8px">全部</button>`);
+  all.onclick = (e) => {
+    e.stopPropagation();
+    openManager('history');
+  };
+  head.appendChild(all);
   head.onclick = () => {
     sectionCollapsed.log = !sectionCollapsed.log;
     render();
@@ -188,7 +197,9 @@ function logSection() {
       list.innerHTML = items.length ? '' : '<div class="muted" style="padding:6px 12px;font-size:12px">还没有提交</div>';
       for (const c of items) {
         const refs = c.refs ? c.refs.split(', ').filter(Boolean).map((r) => `<span class="ref">${escapeHtml(r.replace('HEAD -> ', ''))}</span> `).join('') : '';
-        list.appendChild(h(`<div class="log-item" title="${escapeHtml(c.subject)}"><div class="subj">${refs}${escapeHtml(c.subject)}</div><div class="meta">${escapeHtml(c.hash)} · ${escapeHtml(c.author)} · ${escapeHtml(c.date)}</div></div>`));
+        const item = h(`<div class="log-item" title="${escapeHtml(c.subject)}"><div class="subj">${refs}${escapeHtml(c.subject)}</div><div class="meta">${escapeHtml(c.hash)} · ${escapeHtml(c.author)} · ${escapeHtml(c.date)}</div></div>`);
+        item.onclick = () => openManager('history', c.hash);
+        list.appendChild(item);
       }
     });
   }
@@ -238,10 +249,84 @@ async function doCommit(ta, opts = {}) {
   }, '提交成功');
 }
 
-async function remote(args) {
-  toast(`正在执行 git ${args[0]}…`);
-  await wrap(() => window.ide.git.run(ctx.root, args), `git ${args[0]} 完成`);
+// ---------------- 远程操作：获取、拉取、推送、同步 ----------------
+
+let busy = null; // 正在进行的远程操作名称
+
+export function syncTitle() {
+  if (busy) return `正在${busy}…`;
+  if (!status || !status.isRepo) return '';
+  if (!status.upstream) return '发布分支：推送到远程并建立跟踪';
+  const parts = [status.behind && `${status.behind} 个提交待拉取`, status.ahead && `${status.ahead} 个提交待推送`].filter(Boolean);
+  return parts.length ? `同步更改（${parts.join('，')}）` : '同步更改：与远程一致';
+}
+
+export function gitBusy() {
+  return busy;
+}
+
+// 执行一次可能改动工作区的 git 操作：args 是 git 参数数组，或者返回输出文字的函数
+export async function gitOp(label, args, { okMsg, quiet = false } = {}) {
+  if (!ctx.root) return false;
+  if (busy) {
+    if (!quiet) toast(`正在${busy}，请稍候`);
+    return false;
+  }
+  busy = label;
+  bus.emit('git:busy', busy);
+  render();
+  let ok = true;
+  try {
+    const out = typeof args === 'function' ? await args() : await window.ide.git.run(ctx.root, args);
+    if (out) log('Git', out);
+    if (!quiet) toast(okMsg || `${label}完成`, 'success');
+  } catch (err) {
+    ok = false;
+    log('Git', err.message);
+    if (!quiet) toast(friendlyError(err.message), 'error', 6000);
+  }
+  busy = null;
+  bus.emit('git:busy', null);
+  await refreshGit();
   editors.onExternalChange(editors.allDocs().map((d) => d.path));
+  return ok;
+}
+
+export function friendlyError(msg) {
+  const m = String(msg).replace(/^Error invoking remote method '[^']+': (Error: )?/, '');
+  if (/could not read Username|Authentication failed|terminal prompts disabled|Permission denied \(publickey\)/i.test(m)) return '身份验证失败：请在终端里运行一次 git push 登录，或用 gh auth login 登录 GitHub';
+  if (/non-fast-forward|fetch first|\[rejected\]/i.test(m)) return '远程有你本地没有的提交，请先拉取或同步';
+  if (/CONFLICT|Merge conflict|could not apply/i.test(m)) return '出现冲突，请在“更改”里解决冲突后再提交';
+  if (/Could not resolve host|unable to access|Connection (timed out|refused)/i.test(m)) return '无法连接远程仓库，请检查网络';
+  if (/No configured push destination|does not appear to be a git repository|No such remote/i.test(m)) return '还没有配置远程仓库';
+  if (/There is no tracking information/i.test(m)) return '当前分支没有上游分支，请先推送一次';
+  if (/Your local changes .* would be overwritten/i.test(m)) return '本地有未提交的更改会被覆盖，请先提交或储藏';
+  return m.split('\n').find((l) => l.trim()) || m;
+}
+
+export const fetchNow = (quiet = false) => gitOp('获取', ['fetch', '--all', '--prune', '--tags'], { okMsg: '已获取远程最新状态', quiet });
+export const pullNow = () => gitOp('拉取', ['pull', ctx.settings.gitSyncRebase ? '--rebase' : '--no-rebase'], { okMsg: '拉取完成' });
+export const pushNow = () => status && status.isRepo && gitOp('推送', status.upstream ? ['push'] : ['push', '-u', 'origin', status.branch], { okMsg: '推送完成' });
+
+export async function syncNow() {
+  if (!status || !status.isRepo) return;
+  if (status.files.some((f) => f.index === 'U' || f.worktree === 'U')) return toast('还有未解决的冲突，请先处理', 'error');
+  await editors.saveAll();
+  return gitOp('同步', () => window.ide.git.sync(ctx.root, { rebase: !!ctx.settings.gitSyncRebase }), { okMsg: '同步完成' });
+}
+
+export function openManager(tab, commit) {
+  return import('./git-manager.js').then((m) => m.openGitManager(tab, commit));
+}
+
+// 定时在后台获取一次，让“落后 n 个提交”及时显示出来
+let autoFetchTimer = null;
+function scheduleAutoFetch() {
+  clearInterval(autoFetchTimer);
+  if (!ctx.settings.gitAutoFetch) return;
+  autoFetchTimer = setInterval(() => {
+    if (status && status.isRepo && status.upstream && !busy && document.visibilityState === 'visible') fetchNow(true);
+  }, 5 * 60 * 1000);
 }
 
 export async function switchBranch() {
@@ -255,8 +340,7 @@ export async function switchBranch() {
 }
 
 async function checkout(name) {
-  await wrap(() => window.ide.git.checkout(ctx.root, name, false), `已切换到 ${name}`);
-  editors.onExternalChange(editors.allDocs().map((d) => d.path));
+  await gitOp('切换分支', () => window.ide.git.checkout(ctx.root, name, false), { okMsg: `已切换到 ${name}` });
 }
 
 async function createBranch() {
@@ -304,16 +388,18 @@ export function initGit() {
   view = document.querySelector('.view[data-view=git]');
   view.innerHTML = `<div class="view-header"><span class="view-title">源代码管理</span>
     <div class="view-actions">
+      <button class="icon-btn" data-a="sync" title="同步（拉取并推送）">${icon('sync')}</button>
       <button class="icon-btn" data-a="branch" title="切换分支">${icon('branch')}</button>
-      <button class="icon-btn" data-a="pull" title="拉取">${icon('download')}</button>
-      <button class="icon-btn" data-a="push" title="推送">${icon('upload')}</button>
+      <button class="icon-btn" data-a="manager" title="Git 管理：仓库信息、GitHub、分支、标签、远程">${icon('layout')}</button>
       <button class="icon-btn" data-a="refresh" title="刷新">${icon('refresh')}</button>
     </div></div><div class="view-body"></div>`;
   body = view.querySelector('.view-body');
   view.querySelector('[data-a=refresh]').onclick = refreshGit;
   view.querySelector('[data-a=branch]').onclick = switchBranch;
-  view.querySelector('[data-a=pull]').onclick = () => status && status.isRepo && remote(['pull']);
-  view.querySelector('[data-a=push]').onclick = () => status && status.isRepo && remote(status.upstream ? ['push'] : ['push', '-u', 'origin', status.branch]);
+  view.querySelector('[data-a=sync]').onclick = syncNow;
+  view.querySelector('[data-a=manager]').onclick = () => openManager();
+  scheduleAutoFetch();
+  bus.on('settings:changed', (_s, patch) => 'gitAutoFetch' in patch && scheduleAutoFetch());
   const debounced = debounce(refreshGit, 500);
   bus.on('doc:saved', debounced);
   bus.on('fs:changed', debounced);
